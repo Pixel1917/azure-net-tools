@@ -1,1 +1,1 @@
-export * from './ObjectUtil';
+export * from './ObjectUtil.js';
