@@ -1,4 +1,4 @@
-import { EnvironmentUtil } from '../environmentUtil';
+import { EnvironmentUtil } from '../environmentUtil/EnvironmentUtil.js';
 
 /**
  * Utility class for managing cookies in the browser environment.

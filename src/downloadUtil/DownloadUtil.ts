@@ -1,4 +1,4 @@
-import { EnvironmentUtil } from '../environmentUtil';
+import { EnvironmentUtil } from '../environmentUtil/EnvironmentUtil.js';
 
 export class DownloadUtil {
 	static download(fileUrl: string = '', fileName: string = 'download') {
