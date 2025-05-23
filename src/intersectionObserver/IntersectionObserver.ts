@@ -3,7 +3,7 @@
  *
  * @template T - Type of the observed DOM element.
  */
-interface ObserverParams<T extends Element> {
+export interface ObserverParams<T extends Element> {
 	/**
 	 * Callback function called when the intersection status of the element changes.
 	 *
