@@ -1,5 +1,6 @@
 {
   "name": "azure-net-tools",
+  "type": "module",
   "description": "Azure-net tools library",
   "homepage": "https://github.com/Pixel1917/azure-net-tools",
   "bugs": {

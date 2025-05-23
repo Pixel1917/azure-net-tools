@@ -25,7 +25,7 @@ export class TextUtil {
 	 * PluralUtil.formatText(1, ['яблоко', 'яблока', 'яблок']); // 'яблоко'
 	 * PluralUtil.formatText(5, ['яблоко', 'яблока', 'яблок']); // 'яблок'
 	 */
-	public static formatText(num: number, titles: string[]): string {
+	public static pluralize(num: number, titles: string[]): string {
 		if (titles.length !== 2 && titles.length !== 3) {
 			throw new Error('Titles array must have 2 or 3 elements');
 		}

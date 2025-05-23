@@ -1,6 +1,6 @@
 # 🔧 azure-net-tools
 
-**A collection of universal utilities for use in the browser, Node.js, and WebWorker environments.**
+**A collection of universal utilities.**
 Ideal for TypeScript/JavaScript projects, covering a wide range of tasks: object and string manipulation, DOM observation, event bus logic, and more.
 
 ## 📦 Installation
@@ -88,7 +88,7 @@ Object utilities:
 
 ---
 
-## 📅 `DateUtil`
+### 📅 `DateUtil`
 
 The `DateUtil` class offers helper methods to format and manipulate dates and times, including support for different locales.
 
@@ -127,7 +127,7 @@ DateUtil.toFormat('2025-12-01', 'dd MM yyyy'); // "01 December 2025"
 
 ---
 
-## 🍪 `Cookies`
+### 🍪 `Cookies`
 
 The `Cookies` class provides a simple interface for interacting with cookies in the browser.
 
