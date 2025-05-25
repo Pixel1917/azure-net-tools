@@ -88,6 +88,41 @@ Object utilities:
 
 ---
 
+### 📊 `FormDataUtil`
+
+Utility class for converting between `FormData` and deeply nested JavaScript objects, supporting complex structures including arrays, nested objects, Maps, Sets, Dates, and Blob/File objects.
+
+- Converts `FormData` keys with bracket notation (e.g., `foo[bar][baz]`) into nested objects.
+- Supports serialization of objects with nested structures into `FormData`.
+- Detects cyclic references during serialization and throws an error.
+- Handles special types like `Date`, `Blob`, `File`, `Map`, and `Set`.
+
+#### Example usage
+
+```ts
+import { FormDataUtil } from 'azure-net-tools';
+
+// Convert FormData to object
+const formData = new FormData();
+formData.append('user[name]', 'Alice');
+formData.append('user[age]', '30');
+const obj = FormDataUtil.toObject<{ user: { name: string; age: string } }>(formData);
+console.log(obj.user.name); // Alice
+
+// Convert object to FormData
+const objToSerialize = {
+	user: {
+		name: 'Bob',
+		age: 25,
+		files: [new File(['content'], 'file.txt')],
+		birthDate: new Date('1995-12-17')
+	}
+};
+const fd = FormDataUtil.fromObject(objToSerialize);
+```
+
+---
+
 ### 📅 `DateUtil`
 
 The `DateUtil` class offers helper methods to format and manipulate dates and times, including support for different locales.

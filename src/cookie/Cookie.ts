@@ -176,13 +176,15 @@ export class Cookies {
 		const result: Record<string, unknown> = {};
 		for (const cookie of cookies) {
 			const [key] = cookie.split('=', 2);
-			const value = cookie.substring(key.length + 1);
-			const decodedKey = decodeURIComponent(key);
-			const decodedValue = decodeURIComponent(value);
-			try {
-				result[decodedKey] = JSON.parse(decodedValue);
-			} catch {
-				result[decodedKey] = decodedValue;
+			if (key) {
+				const value = cookie.substring(key.length + 1);
+				const decodedKey = decodeURIComponent(key);
+				const decodedValue = decodeURIComponent(value);
+				try {
+					result[decodedKey] = JSON.parse(decodedValue);
+				} catch {
+					result[decodedKey] = decodedValue;
+				}
 			}
 		}
 		return result;

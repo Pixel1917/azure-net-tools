@@ -6,3 +6,4 @@ export * from './environmentUtil/EnvironmentUtil.js';
 export * from './objectUtil/ObjectUtil.js';
 export * from './intersectionObserver/IntersectionObserver.js';
 export * from './downloadUtil/DownloadUtil.js';
+export * from './formdata/FormDataUtil.js';

@@ -12,14 +12,14 @@ type LocaleData = {
 	// You can extend this with weekdays, formats, etc.
 };
 
-const DEFAULT_LOCALES: Record<string, LocaleData> = {
+const DEFAULT_LOCALES = {
 	ru: {
 		months: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
 	},
 	en: {
 		months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 	}
-};
+} satisfies Record<string, LocaleData>;
 
 /**
  * Utility class for date formatting and localization.
@@ -31,7 +31,7 @@ export class DateUtil {
 	/**
 	 * Current locale code, default is 'ru'.
 	 */
-	private static _locale: string = 'ru';
+	private static _locale: keyof typeof DEFAULT_LOCALES = 'ru';
 
 	/**
 	 * Optional custom locale data to override default translations.
@@ -51,7 +51,7 @@ export class DateUtil {
 	 * @param {string} locale - Locale code (e.g., 'ru', 'en').
 	 * @param {LocaleData} [customLocaleData] - Optional custom translations for months, etc.
 	 */
-	static setLocale(locale: string, customLocaleData?: LocaleData): void {
+	static setLocale(locale: keyof typeof DEFAULT_LOCALES, customLocaleData?: LocaleData): void {
 		this._locale = locale;
 		this._customLocaleData = customLocaleData;
 	}
@@ -262,7 +262,7 @@ export class DateUtil {
 
 		const months = this.localeData.months;
 
-		const replacements: Record<string, string> = {
+		const replacements = {
 			yyyy: String(yearFull),
 			yy: yearShort,
 			MM: months[monthNum] || '',
@@ -272,8 +272,8 @@ export class DateUtil {
 			HH: this.pad(hoursNum),
 			ii: this.pad(minutesNum),
 			ss: this.pad(secondsNum)
-		};
+		} satisfies Record<string, string>;
 
-		return pattern.replace(/yyyy|yy|MM|mm|dd|d|HH|ii|ss/g, (match) => replacements[match]);
+		return pattern.replace(/yyyy|yy|MM|mm|dd|d|HH|ii|ss/g, (match) => replacements[match as keyof typeof replacements]);
 	}
 }

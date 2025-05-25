@@ -34,14 +34,14 @@ export class TextUtil {
 
 		if (titles.length === 2) {
 			// English-like pluralization (singular/plural)
-			return number === 1 ? titles[0] : titles[1];
+			return number === 1 ? titles[0]! : titles[1]!;
 		} else {
 			// Russian-like pluralization with 3 forms
 			const cases = [2, 0, 1, 1, 1, 2];
 			if (number % 100 > 4 && number % 100 < 20) {
-				return titles[2];
+				return titles[2]!;
 			}
-			return titles[cases[number % 10 < 5 ? number % 10 : 5]];
+			return titles[cases[number % 10 < 5 ? number % 10 : 5]!]!;
 		}
 	}
 
