@@ -2,7 +2,7 @@
  * A utility class for working with JavaScript objects.
  */
 export class ObjectUtil {
-	toKeyValueArray<T extends object, D = keyof T>(object: T, ObjectKeyAToNumber: boolean = false) {
+	static toKeyValueArray<T extends object, D = keyof T>(object: T, ObjectKeyAToNumber: boolean = false) {
 		return Object.entries(object).map(([key, value]) => ({ key: ObjectKeyAToNumber ? Number(key) : key, value }) as { key: D; value: T[keyof T] });
 	}
 	/**
