@@ -7,3 +7,4 @@ export * from './objectUtil/ObjectUtil.js';
 export * from './intersectionObserver/IntersectionObserver.js';
 export * from './downloadUtil/DownloadUtil.js';
 export * from './formdata/FormDataUtil.js';
+export * from './uidGenerator/UidGenerator.js';
