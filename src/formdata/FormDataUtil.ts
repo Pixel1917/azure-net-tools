@@ -69,7 +69,7 @@ export class FormDataUtil {
 
 		if (typeof obj === 'object' && obj !== null) {
 			if (seen.has(obj)) {
-				throw new Error('Циклическая ссылка обнаружена при сериализации объекта');
+				throw new Error('[FormDataUtil] Cycle link detected');
 			}
 			seen.add(obj);
 		}

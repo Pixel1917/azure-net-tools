@@ -1,5 +1,5 @@
 export * from './textUtil/TextUtil.js';
-export * from './cookie/Cookie.js';
+export * from './cookies/Cookies.js';
 export * from './dateUtil/DateUtil.js';
 export * from './eventBus/EventBus.js';
 export * from './environmentUtil/EnvironmentUtil.js';
@@ -7,3 +7,6 @@ export * from './objectUtil/ObjectUtil.js';
 export * from './intersectionObserver/IntersectionObserver.js';
 export * from './downloadUtil/DownloadUtil.js';
 export * from './formdata/FormDataUtil.js';
+export * from './debounce/DebounceUtil.js';
+export * from './throttle/ThrottleUtil.js';
+export * from './localStorageUtil/LocalStorageUtil.js';

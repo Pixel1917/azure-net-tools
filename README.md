@@ -84,7 +84,9 @@ Object utilities:
 * `equals(obj1, obj2)` — deep equality check (supports functions).
 * `isAllKeysEmpty(obj)` — checks if all properties are `null` or `undefined`.
 * `isObjectEmpty(obj)` — checks if object has no keys.
-* `renderAsString(obj)` — HTML-highlighted JSON representation.
+* `pick(obj, keys)` — returns object with only the given keys (typed as `Pick<T, K>`).
+* `omit(obj, keys)` — returns object without the given keys (typed as `Omit<T, K>`).
+* `renderAsString(obj, options?)` — pretty-printed, syntax-highlighted JSON HTML. Wrapped in `<pre><code>` by default.  Pass `{ wrap: false }` to get only the inner highlighted string.
 
 ---
 
@@ -187,15 +189,61 @@ Cookies.delete('theme');
 
 ---
 
+### ⏱️ `DebounceUtil`
+
+Creates a debounced function that runs only after `ms` milliseconds have passed since the last call.
+
+```ts
+const onSearch = DebounceUtil.debounce((query: string) => fetchSuggestions(query), 300);
+onSearch('a'); onSearch('ab'); onSearch('abc'); // only last call runs after 300ms
+```
+
+---
+
+### 🚦 `ThrottleUtil`
+
+Creates a throttled function that runs at most once per `ms` milliseconds (leading + one trailing call).
+
+```ts
+const onScroll = ThrottleUtil.throttle(() => updatePosition(), 100);
+```
+
+---
+
+### 📦 `LocalStorageUtil`
+
+Utility for `localStorage` in the browser. Uses `EnvironmentUtil` and does not access storage on the server. API mirrors `Cookies`: set, get, delete, has, keys, getAll, clear. Non-string values are JSON-serialized.
+
+```ts
+LocalStorageUtil.set('theme', 'dark');
+const theme = LocalStorageUtil.get<string>('theme'); // "dark"
+
+LocalStorageUtil.set('user', { name: 'Alice' });
+const user = LocalStorageUtil.get<{ name: string }>('user'); // { name: 'Alice' }
+
+LocalStorageUtil.delete('theme');
+const allKeys = LocalStorageUtil.keys();
+LocalStorageUtil.clear();
+```
+
+---
 
 ## 📘 Usage Example
 
 ```ts
-import { EnvironmentUtil, TextUtil, ObjectUtil } from 'azure-net-tools';
+import { EnvironmentUtil, TextUtil, ObjectUtil, DebounceUtil, LocalStorageUtil } from 'azure-net-tools';
 
 if (EnvironmentUtil.isBrowser) {
 	console.log(TextUtil.capitalize('hello world'));
+	LocalStorageUtil.set('pref', { theme: 'dark' });
 }
+
+const user = { id: 1, name: 'Alice', password: 'secret' };
+const safe = ObjectUtil.pick(user, ['id', 'name']); // { id: 1, name: 'Alice' }
+const withoutPassword = ObjectUtil.omit(user, ['password']); // { id: 1, name: 'Alice' }
+
+const fn = DebounceUtil.debounce((x: number) => console.log(x), 200);
+fn(1); fn(2); fn(3); // logs 3 once after 200ms
 ```
 
 ---
