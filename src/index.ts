@@ -10,3 +10,4 @@ export * from './formdata/FormDataUtil.js';
 export * from './debounce/DebounceUtil.js';
 export * from './throttle/ThrottleUtil.js';
 export * from './localStorageUtil/LocalStorageUtil.js';
+export * from './uidGenerator/UidGenerator.js';
