@@ -178,7 +178,7 @@ export class Cookies {
 			const [key] = cookie.split('=', 2);
 			if (key) {
 				const value = cookie.substring(key.length + 1);
-				const decodedKey = decodeURIComponent(key);
+				const decodedKey = decodeURIComponent(key.trim()).trim();
 				const decodedValue = decodeURIComponent(value);
 				try {
 					result[decodedKey] = JSON.parse(decodedValue);
@@ -206,6 +206,7 @@ export class Cookies {
 
 		const allCookies = this.getAll();
 		for (const key in allCookies) {
+			if (!/^[a-zA-Z0-9_-]+$/.test(key)) continue;
 			this.delete(key, path, domain);
 		}
 	}

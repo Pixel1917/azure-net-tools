@@ -20,10 +20,10 @@ export class TextUtil {
 	 * @throws {Error} Throws if titles array length is not 2 or 3.
 	 *
 	 * @example
-	 * PluralUtil.formatText(1, ['apple', 'apples']); // 'apple'
-	 * PluralUtil.formatText(2, ['apple', 'apples']); // 'apples'
-	 * PluralUtil.formatText(1, ['яблоко', 'яблока', 'яблок']); // 'яблоко'
-	 * PluralUtil.formatText(5, ['яблоко', 'яблока', 'яблок']); // 'яблок'
+	 * PluralUtil.pluralize(1, ['apple', 'apples']); // 'apple'
+	 * PluralUtil.pluralize(2, ['apple', 'apples']); // 'apples'
+	 * PluralUtil.pluralize(1, ['яблоко', 'яблока', 'яблок']); // 'яблоко'
+	 * PluralUtil.pluralize(5, ['яблоко', 'яблока', 'яблок']); // 'яблок'
 	 */
 	public static pluralize(num: number, titles: string[]): string {
 		if (titles.length !== 2 && titles.length !== 3) {
