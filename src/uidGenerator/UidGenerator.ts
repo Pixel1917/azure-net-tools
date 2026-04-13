@@ -8,6 +8,17 @@ export class UidGenerator {
 
 	private static counter = 0;
 
+	private static fillRandomBytes(bytes: Uint8Array): void {
+		if (typeof globalThis.crypto !== 'undefined') {
+			globalThis.crypto.getRandomValues(bytes);
+			return;
+		}
+
+		for (let i = 0; i < bytes.length; i++) {
+			bytes[i] = Math.floor(Math.random() * 256);
+		}
+	}
+
 	/**
 	 * Generates unique string
 	 * @param length - string length (16 by default)
@@ -17,19 +28,7 @@ export class UidGenerator {
 	static generateUniqueString(length: number = 16, alphabet: string = UidGenerator.ALPHANUMERIC): string {
 		const chars: string[] = [];
 		const randomValues = new Uint8Array(length);
-
-		if (typeof globalThis.crypto !== 'undefined') {
-			globalThis.crypto.getRandomValues(randomValues);
-		} else {
-			try {
-				const crypto = eval('require')('crypto');
-				crypto.randomFillSync(randomValues);
-			} catch {
-				for (let i = 0; i < length; i++) {
-					randomValues[i] = Math.floor(Math.random() * 256);
-				}
-			}
-		}
+		UidGenerator.fillRandomBytes(randomValues);
 
 		for (let i = 0; i < length; i++) {
 			const randomValue = randomValues[i];
@@ -54,19 +53,7 @@ export class UidGenerator {
 		const range = max - min;
 		const bytesNeeded = Math.ceil(Math.log2(range) / 8);
 		const randomBytes = new Uint8Array(bytesNeeded);
-
-		if (typeof globalThis.crypto !== 'undefined') {
-			globalThis.crypto.getRandomValues(randomBytes);
-		} else {
-			try {
-				const crypto = eval('require')('crypto');
-				crypto.randomFillSync(randomBytes);
-			} catch {
-				for (let i = 0; i < bytesNeeded; i++) {
-					randomBytes[i] = Math.floor(Math.random() * 256);
-				}
-			}
-		}
+		UidGenerator.fillRandomBytes(randomBytes);
 
 		let randomNumber = 0;
 		for (let i = 0; i < bytesNeeded; i++) {
