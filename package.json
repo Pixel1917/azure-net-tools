@@ -1,5 +1,5 @@
 {
-	"name": "azure-net-tools",
+	"name": "@azure-net/tools",
 	"type": "module",
 	"description": "Azure-net tools library",
 	"homepage": "https://github.com/Pixel1917/azure-net-tools",
@@ -17,7 +17,7 @@
 		"registry": "https://registry.npmjs.org/"
 	},
 	"license": "MIT",
-	"version": "1.3.0",
+	"version": "1.0.0",
 	"main": "dist/index.js",
 	"types": "dist/types/index.d.ts",
 	"exports": {

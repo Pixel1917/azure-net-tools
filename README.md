@@ -1,19 +1,21 @@
-# 🔧 azure-net-tools
+# @azure-net/tools
+
+## Last new relases in package @azure-net/tools
 
 **A collection of universal utilities.**
 Ideal for TypeScript/JavaScript projects, covering a wide range of tasks: object and string manipulation, DOM observation, event bus logic, and more.
 
-## 📦 Installation
+## Installation
 
 ```bash
 npm install azure-net-tools
 ```
 
-## 🧩 Utilities
+## Utilities
 
 > All utilities can be imported directly from the package.
 
-### 🧠 `EnvironmentUtil`
+### `EnvironmentUtil`
 
 Detects the current execution environment:
 
@@ -33,7 +35,7 @@ import { BROWSER, DEV, NODE } from 'azure-net-tools/environment';
 
 ---
 
-### 💾 `DownloadUtil`
+### `DownloadUtil`
 
 Triggers file download in the browser:
 
@@ -43,7 +45,7 @@ DownloadUtil.download('https://example.com/file.pdf', 'myFile.pdf');
 
 ---
 
-### 📡 `EventBus<D>`
+### `EventBus<D>`
 
 A lightweight event bus implementation.
 
@@ -56,7 +58,7 @@ bus.publish('loaded', { status: 'ok' });
 
 ---
 
-### 👀 `IntersectionObserverUtil<T>`
+### `IntersectionObserverUtil<T>`
 
 Simplified wrapper for `IntersectionObserver`.
 
@@ -71,7 +73,7 @@ const observer = new IntersectionObserverUtil(element, {
 
 ---
 
-### ✍️ `TextUtil`
+### `TextUtil`
 
 String utilities:
 
@@ -83,7 +85,7 @@ String utilities:
 
 ---
 
-### 🧱 `ObjectUtil`
+### `ObjectUtil`
 
 Object utilities:
 
@@ -99,7 +101,7 @@ Object utilities:
 
 ---
 
-### 📊 `FormDataUtil`
+### `FormDataUtil`
 
 Utility class for converting between `FormData` and deeply nested JavaScript objects, supporting complex structures including arrays, nested objects, Maps, Sets, Dates, and Blob/File objects.
 
@@ -134,7 +136,7 @@ const fd = FormDataUtil.fromObject(objToSerialize);
 
 ---
 
-### 📅 `DateUtil`
+### `DateUtil`
 
 The `DateUtil` class offers helper methods to format and manipulate dates and times, including support for different locales.
 
@@ -173,7 +175,7 @@ DateUtil.toFormat('2025-12-01', 'dd MM yyyy'); // "01 December 2025"
 
 ---
 
-### 🍪 `Cookies`
+### `Cookies`
 
 The `Cookies` class provides a simple interface for interacting with cookies in the browser.
 
@@ -198,7 +200,7 @@ Cookies.delete('theme');
 
 ---
 
-### ⏱️ `DebounceUtil`
+### `DebounceUtil`
 
 Creates a debounced function that runs only after `ms` milliseconds have passed since the last call.
 
@@ -209,7 +211,7 @@ onSearch('a'); onSearch('ab'); onSearch('abc'); // only last call runs after 300
 
 ---
 
-### 🚦 `ThrottleUtil`
+### `ThrottleUtil`
 
 Creates a throttled function that runs at most once per `ms` milliseconds (leading + one trailing call).
 
@@ -219,7 +221,7 @@ const onScroll = ThrottleUtil.throttle(() => updatePosition(), 100);
 
 ---
 
-### 📦 `LocalStorageUtil`
+### `LocalStorageUtil`
 
 Utility for `localStorage` in the browser. Uses `EnvironmentUtil` and does not access storage on the server. API mirrors `Cookies`: set, get, delete, has, keys, getAll, clear. Non-string values are JSON-serialized.
 
@@ -237,7 +239,7 @@ LocalStorageUtil.clear();
 
 ---
 
-## 📘 Usage Example
+## Usage Example
 
 ```ts
 import { EnvironmentUtil, TextUtil, ObjectUtil, DebounceUtil, LocalStorageUtil } from 'azure-net-tools';
