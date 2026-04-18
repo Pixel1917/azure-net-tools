@@ -20,7 +20,16 @@ Detects the current execution environment:
 * `EnvironmentUtil.isBrowser`
 * `EnvironmentUtil.isServer`
 * `EnvironmentUtil.isWebWorker`
+* `EnvironmentUtil.isDevelopment`
+* `EnvironmentUtil.isProduction`
 * `EnvironmentUtil.currentEnvironment()` → `'browser' | 'server' | 'webWorker' | 'unknown'`
+* `EnvironmentUtil.currentMode()` → `'development' | 'production' | 'unknown'`
+
+For build-time env flags (for dead code elimination), use:
+
+```ts
+import { BROWSER, DEV, NODE } from 'azure-net-tools/environment';
+```
 
 ---
 
