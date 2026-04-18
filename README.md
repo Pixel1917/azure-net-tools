@@ -1,7 +1,5 @@
 # @azure-net/tools
 
-## Last new relases in package @azure-net/tools
-
 **A collection of universal utilities.**
 Ideal for TypeScript/JavaScript projects, covering a wide range of tasks: object and string manipulation, DOM observation, event bus logic, and more.
 
