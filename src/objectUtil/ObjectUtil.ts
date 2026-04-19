@@ -30,7 +30,7 @@ export class ObjectUtil {
 	}
 
 	/**
-	 * Compares two values by their JSON string representation.
+	 * Compares two values by their JSON string representation. (Fast unsafe compare)
 	 * @param obj1 - First value to compare.
 	 * @param obj2 - Second value to compare.
 	 * @returns `true` if both values have the same JSON string, `false` otherwise.
@@ -45,13 +45,10 @@ export class ObjectUtil {
 	 * @returns The number of own properties.
 	 */
 	static countProps(obj: unknown): number {
-		let count = 0;
-		for (const k in obj as object) {
-			if (k in (obj as object)) {
-				count++;
-			}
+		if (obj === null || typeof obj !== 'object') {
+			return 0;
 		}
-		return count;
+		return Object.keys(obj).length;
 	}
 
 	/**
@@ -62,41 +59,73 @@ export class ObjectUtil {
 	 * @returns `true` if equal, `false` otherwise.
 	 */
 	static equals(a: unknown, b: unknown): boolean {
-		if (Object.is(a, b)) return true;
+		const visited = new WeakMap<object, object>();
 
-		if (typeof a !== typeof b) return false;
-		if (a == null || b == null) return false;
+		const eq = (left: unknown, right: unknown): boolean => {
+			if (Object.is(left, right)) return true;
 
-		if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
-		if (a instanceof RegExp && b instanceof RegExp) return a.source === b.source && a.flags === b.flags;
+			if (typeof left !== typeof right) return false;
+			if (left == null || right == null) return false;
 
-		if (Array.isArray(a) || Array.isArray(b)) {
-			if (!Array.isArray(a) || !Array.isArray(b)) return false;
-			if (a.length !== b.length) return false;
-			for (let i = 0; i < a.length; i++) {
-				if (!this.equals(a[i], b[i])) return false;
+			if (left instanceof Date && right instanceof Date) return left.getTime() === right.getTime();
+			if (left instanceof RegExp && right instanceof RegExp) return left.source === right.source && left.flags === right.flags;
+
+			if (typeof left !== 'object' || typeof right !== 'object') return false;
+
+			const leftObj = left as object;
+			const rightObj = right as object;
+
+			const cached = visited.get(leftObj);
+			if (cached) {
+				return cached === rightObj;
+			}
+			visited.set(leftObj, rightObj);
+
+			if (Array.isArray(leftObj) || Array.isArray(rightObj)) {
+				if (!Array.isArray(leftObj) || !Array.isArray(rightObj)) return false;
+				if (leftObj.length !== rightObj.length) return false;
+				for (let i = 0; i < leftObj.length; i++) {
+					if (!eq(leftObj[i], rightObj[i])) return false;
+				}
+				return true;
+			}
+
+			if (leftObj instanceof Map || rightObj instanceof Map) {
+				if (!(leftObj instanceof Map) || !(rightObj instanceof Map)) return false;
+				if (leftObj.size !== rightObj.size) return false;
+				for (const [key, value] of leftObj) {
+					if (!rightObj.has(key)) return false;
+					if (!eq(value, rightObj.get(key))) return false;
+				}
+				return true;
+			}
+
+			if (leftObj instanceof Set || rightObj instanceof Set) {
+				if (!(leftObj instanceof Set) || !(rightObj instanceof Set)) return false;
+				if (leftObj.size !== rightObj.size) return false;
+				for (const value of leftObj) {
+					if (!rightObj.has(value)) return false;
+				}
+				return true;
+			}
+
+			if (Object.getPrototypeOf(leftObj) !== Object.getPrototypeOf(rightObj)) return false;
+
+			const leftRecord = leftObj as Record<string, unknown>;
+			const rightRecord = rightObj as Record<string, unknown>;
+
+			const leftKeys = Object.keys(leftRecord);
+			const rightKeys = Object.keys(rightRecord);
+			if (leftKeys.length !== rightKeys.length) return false;
+
+			for (const key of leftKeys) {
+				if (!Object.prototype.hasOwnProperty.call(rightRecord, key)) return false;
+				if (!eq(leftRecord[key], rightRecord[key])) return false;
 			}
 			return true;
-		}
+		};
 
-		if (typeof a === 'object' && typeof b === 'object') {
-			if (Object.getPrototypeOf(a) !== Object.getPrototypeOf(b)) return false;
-
-			const aObj = a as Record<string, unknown>;
-			const bObj = b as Record<string, unknown>;
-
-			const aKeys = Object.keys(aObj);
-			const bKeys = Object.keys(bObj);
-			if (aKeys.length !== bKeys.length) return false;
-
-			for (const key of aKeys) {
-				if (!Object.prototype.hasOwnProperty.call(bObj, key)) return false;
-				if (!this.equals(aObj[key], bObj[key])) return false;
-			}
-			return true;
-		}
-
-		return false;
+		return eq(a, b);
 	}
 
 	/**
@@ -111,16 +140,15 @@ export class ObjectUtil {
 		if (typeof obj !== 'object') {
 			return false;
 		}
-		for (const key in obj as object) {
-			if (key in (obj as object)) {
-				const value = (obj as Record<string, unknown>)[key];
-				if (typeof value === 'object' && value !== null) {
-					if (!this.isAllKeysEmpty(value)) {
-						return false;
-					}
-				} else if (value !== null && value !== undefined) {
+
+		for (const key of Object.keys(obj as Record<string, unknown>)) {
+			const value = (obj as Record<string, unknown>)[key];
+			if (typeof value === 'object' && value !== null) {
+				if (!this.isAllKeysEmpty(value)) {
 					return false;
 				}
+			} else if (value !== null && value !== undefined) {
+				return false;
 			}
 		}
 		return true;
@@ -135,12 +163,7 @@ export class ObjectUtil {
 		if (obj === null || typeof obj !== 'object') {
 			return true;
 		}
-		for (const key in obj as object) {
-			if (key in (obj as object)) {
-				return false;
-			}
-		}
-		return true;
+		return Object.keys(obj).length === 0;
 	}
 
 	/**
