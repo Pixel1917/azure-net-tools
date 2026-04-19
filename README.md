@@ -36,6 +36,7 @@ import { BROWSER, DEV, NODE } from 'azure-net-tools/environment';
 ### `DownloadUtil`
 
 Triggers file download in the browser:
+First argument can be a string URL, Blob, or File.
 
 ```ts
 DownloadUtil.download('https://example.com/file.pdf', 'myFile.pdf');
@@ -43,15 +44,24 @@ DownloadUtil.download('https://example.com/file.pdf', 'myFile.pdf');
 
 ---
 
-### `EventBus<D>`
+### `EventBus<E>`
 
 A lightweight event bus implementation.
 
 ```ts
-const bus = new EventBus<'loaded' | 'error'>();
+type AppEvents = {
+	loaded: { status: 'ok' };
+	error: { message: string };
+};
 
-bus.subscribe('loaded', (data) => console.log('Loaded:', data));
-bus.publish('loaded', { status: 'ok' });
+const bus = new EventBus<AppEvents>();
+
+const unsubscribe = bus.subscribe('loaded', (data) => console.log('Loaded:', data.status));
+bus.once('error', (data) => console.error(data.message));
+bus.subscribeAll((event, payload) => console.log(event, payload));
+
+await bus.publish('loaded', async () => ({ status: 'ok' }));
+unsubscribe();
 ```
 
 ---
@@ -140,21 +150,28 @@ The `DateUtil` class offers helper methods to format and manipulate dates and ti
 
 ### Features
 
-* Global locale setting (`en`, `ru`, and custom).
+* Locale resolver via `setLocale(() => localeCode)` and default locale fallback.
 * Flexible date and time formatting.
 * Locale-aware month name rendering.
+* Popular built-in locales (`ru`, `en`, `es`, `fr`, `de`, `it`, `pt`, `ja`, `ko`, `zh`) with `Intl` fallback for others.
 * Custom formatting with tokens (`yyyy`, `MM`, `dd`, `HH`, etc.).
-* Optional UTC or local time formatting.
+* Optional `utc`, `timeZone`, and `locale` per call via settings object.
+* Strict ISO-like string parsing (`YYYY-MM-DD` and ISO date-time).
+* Helpers: `isDate`, `now`, `fromTimestamp`.
 
 ### Example Usage
 
 ```ts
-DateUtil.setLocale('en'); // or 'ru' or custom
+DateUtil.setLocale(() => 'en'); // resolver-based locale
 
 DateUtil.toDate('2025-05-23'); // "23.05.2025"
-DateUtil.toDateTime(new Date()); // "23.05.2025 14:32"
-DateUtil.toDayMonth('2025-08-15'); // "15 August" (locale-aware)
-DateUtil.toFormat('2025-12-01', 'dd MM yyyy'); // "01 December 2025"
+DateUtil.toDateTime(new Date(), { utc: true }); // UTC formatting
+DateUtil.toDayMonth('2025-08-15', { locale: 'fr' }); // "15 août" / localized month
+DateUtil.toTime('2025-08-15T12:00:00Z', { timeZone: 'Asia/Tokyo' }); // "21:00"
+DateUtil.toFormat('2025-12-01', 'dd MM yyyy', { locale: 'en' }); // "01 December 2025"
+DateUtil.isDate('2025-12-01'); // true
+DateUtil.now(); // Date
+DateUtil.fromTimestamp(0); // Date(1970-01-01T00:00:00.000Z)
 ```
 
 ### Supported Format Tokens

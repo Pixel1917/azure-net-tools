@@ -9,271 +9,305 @@ type DateFragments = {
 
 type LocaleData = {
 	months: string[];
-	// You can extend this with weekdays, formats, etc.
+	atWord: string;
 };
 
-const DEFAULT_LOCALES = {
-	ru: {
-		months: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
-	},
-	en: {
-		months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-	}
-} satisfies Record<string, LocaleData>;
+export type DateUtilSettings = {
+	utc?: boolean;
+	locale?: string;
+	timeZone?: string;
+};
+
+type SettingsInput = DateUtilSettings | boolean;
+
+const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const ISO_DATE_TIME_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?)$/;
 
 /**
  * Utility class for date formatting and localization.
- *
- * Supports setting a global locale for all formatting methods.
- * Provides methods to format dates and times in different styles.
  */
 export class DateUtil {
-	/**
-	 * Current locale code, default is 'ru'.
-	 */
-	private static _locale: keyof typeof DEFAULT_LOCALES = 'ru';
+	private static readonly DEFAULT_LOCALES = {
+		ru: {
+			months: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'],
+			atWord: 'в'
+		},
+		en: {
+			months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+			atWord: 'at'
+		},
+		es: {
+			months: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
+			atWord: 'a las'
+		},
+		fr: {
+			months: ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'],
+			atWord: 'a'
+		},
+		de: {
+			months: ['Januar', 'Februar', 'Marz', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
+			atWord: 'um'
+		},
+		it: {
+			months: ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'],
+			atWord: 'alle'
+		},
+		pt: {
+			months: ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
+			atWord: 'as'
+		},
+		ja: {
+			months: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+			atWord: 'に'
+		},
+		ko: {
+			months: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+			atWord: '에'
+		},
+		zh: {
+			months: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+			atWord: '在'
+		}
+	} as const satisfies Record<string, LocaleData>;
 
-	/**
-	 * Optional custom locale data to override default translations.
-	 */
-	private static _customLocaleData?: LocaleData;
+	private static readonly FALLBACK_AT_WORD_BY_LANG: Record<string, string> = {
+		ru: 'в',
+		en: 'at',
+		es: 'a las',
+		fr: 'a',
+		de: 'um',
+		it: 'alle',
+		pt: 'as',
+		ja: 'に',
+		ko: '에',
+		zh: '在'
+	};
 
-	/**
-	 * Gets the current locale code.
-	 */
+	private static _defaultLocale: string = 'en';
+	private static _localeResolver?: () => string;
+
 	static get locale(): string {
-		return this._locale;
+		return this.resolveLocale();
 	}
 
-	/**
-	 * Sets the current locale and optionally custom locale data.
-	 *
-	 * @param {string} locale - Locale code (e.g., 'ru', 'en').
-	 * @param {LocaleData} [customLocaleData] - Optional custom translations for months, etc.
-	 */
-	static setLocale(locale: keyof typeof DEFAULT_LOCALES, customLocaleData?: LocaleData): void {
-		this._locale = locale;
-		this._customLocaleData = customLocaleData;
+	static setLocale(localeResolver: () => string): void {
+		this._localeResolver = localeResolver;
 	}
 
-	/**
-	 * Retrieves the locale data for the current locale.
-	 * Falls back to default Russian locale if locale not found.
-	 *
-	 * @returns {LocaleData} - The locale data object containing translations.
-	 */
-	static get localeData(): LocaleData {
-		return this._customLocaleData ?? DEFAULT_LOCALES[this._locale] ?? DEFAULT_LOCALES['ru'];
+	static clearLocaleResolver(): void {
+		this._localeResolver = undefined;
 	}
 
-	/**
-	 * Pads a number or string with leading zero if necessary.
-	 *
-	 * @param {number | string} value - The value to pad.
-	 * @returns {string} - Padded string, always at least 2 characters long.
-	 *
-	 * @example
-	 * DateUtil.pad(5)  // "05"
-	 * DateUtil.pad('9')  // "09"
-	 */
+	static now(): Date {
+		return new Date();
+	}
+
+	static fromTimestamp(timestamp: number): Date {
+		return new Date(timestamp);
+	}
+
 	static pad(value: number | string): string {
 		return ('0' + value).slice(-2);
 	}
 
-	/**
-	 * Checks if the provided date is valid.
-	 *
-	 * @param {string | Date} date - Date object or date string.
-	 * @returns {boolean} - True if valid date, false otherwise.
-	 *
-	 * @example
-	 * DateUtil.isValidDate('2024-05-23') // true
-	 * DateUtil.isValidDate('invalid-date') // false
-	 */
-	private static isValidDate(date: string | Date): boolean {
-		const d = date instanceof Date ? date : new Date(date);
-		return !isNaN(d.getTime());
+	static isDate(date: string | Date): boolean {
+		return this.parseDateInput(date) !== null;
 	}
 
-	/**
-	 * Extracts individual date and time components from a date.
-	 * Returns day, month, year, hours, minutes, seconds as strings (zero-padded).
-	 *
-	 * @param {string | Date} date - Date object or ISO date string.
-	 * @param {boolean} [utc=false] - Whether to use UTC methods instead of local time.
-	 * @returns {DateFragments} - Object containing date and time parts.
-	 *
-	 * @example
-	 * DateUtil.getDateParts('2024-05-23T15:30:00Z')
-	 * // { day: "23", month: "05", year: 2024, hours: "15", minutes: "30", seconds: "00" }
-	 */
-	static getDateParts(date: string | Date, utc: boolean = false): DateFragments {
-		const d = date instanceof Date ? date : new Date(date);
+	static getDateParts(date: string | Date, settings?: SettingsInput): DateFragments {
+		const parsedDate = this.parseDateInput(date);
+		if (!parsedDate) {
+			return { day: '', month: '', year: 0, hours: '', minutes: '', seconds: '' };
+		}
 
-		const day = this.pad(utc ? d.getUTCDate() : d.getDate());
-		const month = this.pad((utc ? d.getUTCMonth() : d.getMonth()) + 1);
-		const year = utc ? d.getUTCFullYear() : d.getFullYear();
-		const hours = this.pad(utc ? d.getUTCHours() : d.getHours());
-		const minutes = this.pad(utc ? d.getUTCMinutes() : d.getMinutes());
-		const seconds = this.pad(utc ? d.getUTCSeconds() : d.getSeconds());
+		const normalized = this.normalizeSettings(settings);
+		if (normalized.timeZone && !normalized.utc) {
+			return this.getDatePartsForTimeZone(parsedDate, normalized.timeZone);
+		}
+
+		const day = this.pad(normalized.utc ? parsedDate.getUTCDate() : parsedDate.getDate());
+		const month = this.pad((normalized.utc ? parsedDate.getUTCMonth() : parsedDate.getMonth()) + 1);
+		const year = normalized.utc ? parsedDate.getUTCFullYear() : parsedDate.getFullYear();
+		const hours = this.pad(normalized.utc ? parsedDate.getUTCHours() : parsedDate.getHours());
+		const minutes = this.pad(normalized.utc ? parsedDate.getUTCMinutes() : parsedDate.getMinutes());
+		const seconds = this.pad(normalized.utc ? parsedDate.getUTCSeconds() : parsedDate.getSeconds());
 
 		return { day, month, year, hours, minutes, seconds };
 	}
 
-	/**
-	 * Formats a date/time as "DD.MM.YYYY HH:mm".
-	 *
-	 * @param {string | Date} date - Date object or ISO date string.
-	 * @param {boolean} [utc=false] - Use UTC time if true, local time if false.
-	 * @returns {string} - Formatted date-time string or empty string if invalid.
-	 *
-	 * @example
-	 * DateUtil.toDateTime('2024-05-23T15:30:00') // "23.05.2024 15:30"
-	 */
-	static toDateTime(date: string | Date, utc: boolean = false): string {
-		if (!this.isValidDate(date)) return '';
-		const { day, month, year, hours, minutes } = this.getDateParts(date, utc);
+	static toDateTime(date: string | Date, settings?: SettingsInput): string {
+		if (!this.isDate(date)) return '';
+		const { day, month, year, hours, minutes } = this.getDateParts(date, settings);
 		return `${day}.${month}.${year} ${hours}:${minutes}`;
 	}
 
-	/**
-	 * Formats a date as "DD.MM.YYYY".
-	 *
-	 * @param {string | Date} date - Date object or ISO date string.
-	 * @param {boolean} [utc=false] - Use UTC time if true, local time if false.
-	 * @returns {string} - Formatted date string or empty string if invalid.
-	 *
-	 * @example
-	 * DateUtil.toDate('2024-05-23') // "23.05.2024"
-	 */
-	static toDate(date: string | Date, utc: boolean = false): string {
-		if (!this.isValidDate(date)) return '';
-		const { day, month, year } = this.getDateParts(date, utc);
+	static toDate(date: string | Date, settings?: SettingsInput): string {
+		if (!this.isDate(date)) return '';
+		const { day, month, year } = this.getDateParts(date, settings);
 		return `${day}.${month}.${year}`;
 	}
 
-	/**
-	 * Formats a time as "HH:mm".
-	 *
-	 * @param {string | Date} date - Date object or ISO date string.
-	 * @param {boolean} [utc=false] - Use UTC time if true, local time if false.
-	 * @returns {string} - Formatted time string or empty string if invalid.
-	 *
-	 * @example
-	 * DateUtil.toTime('2024-05-23T15:30:00') // "15:30"
-	 */
-	static toTime(date: string | Date, utc: boolean = false): string {
-		if (!this.isValidDate(date)) return '';
-		const { hours, minutes } = this.getDateParts(date, utc);
+	static toTime(date: string | Date, settings?: SettingsInput): string {
+		if (!this.isDate(date)) return '';
+		const { hours, minutes } = this.getDateParts(date, settings);
 		return `${hours}:${minutes}`;
 	}
 
-	/**
-	 * Formats a date as "DD month" using the current locale's month names.
-	 *
-	 * @param {string | Date} date - Date object or ISO date string.
-	 * @returns {string} - Formatted string like "15 августа" or "15 May", or empty string if invalid.
-	 *
-	 * @example
-	 * DateUtil.toDayMonth('2024-08-15') // "15 августа" (if locale is 'ru')
-	 */
-	static toDayMonth(date: string | Date): string {
-		const d = date instanceof Date ? date : new Date(date);
-		if (!this.isValidDate(d)) return '';
+	static toDayMonth(date: string | Date, settings?: SettingsInput): string {
+		const parsedDate = this.parseDateInput(date);
+		if (!parsedDate) return '';
 
-		const day = d.getDate();
-		const month = this.localeData.months[d.getMonth()] || '';
+		const normalized = this.normalizeSettings(settings);
+		const localeData = this.resolveLocaleData(normalized.locale);
+
+		const monthIndex = normalized.utc ? parsedDate.getUTCMonth() : parsedDate.getMonth();
+		const day = normalized.utc ? parsedDate.getUTCDate() : parsedDate.getDate();
+		const month = localeData.months[monthIndex] || '';
 
 		return `${day} ${month}`;
 	}
 
-	/**
-	 * Formats a date and time as "DD month в HH:mm" using current locale's month names.
-	 *
-	 * @param {string | Date} date - Date object or ISO date string.
-	 * @returns {string} - Formatted string like "15 августа в 15:00" or "15 May at 15:00", or empty string if invalid.
-	 *
-	 * @example
-	 * DateUtil.toDayMonthTime('2024-08-15T15:00:00') // "15 августа в 15:00" (if locale is 'ru')
-	 */
-	static toDayMonthTime(date: string | Date): string {
-		const d = date instanceof Date ? date : new Date(date);
-		if (!this.isValidDate(d)) return '';
+	static toDayMonthTime(date: string | Date, settings?: SettingsInput): string {
+		const parsedDate = this.parseDateInput(date);
+		if (!parsedDate) return '';
 
-		const day = d.getDate();
-		const month = this.localeData.months[d.getMonth()] || '';
-		const hours = this.pad(d.getHours());
-		const minutes = this.pad(d.getMinutes());
+		const normalized = this.normalizeSettings(settings);
+		const localeData = this.resolveLocaleData(normalized.locale);
+		const { hours, minutes } = this.getDateParts(parsedDate, normalized);
 
-		return `${day} ${month} в ${hours}:${minutes}`;
+		const monthIndex = normalized.utc ? parsedDate.getUTCMonth() : parsedDate.getMonth();
+		const day = normalized.utc ? parsedDate.getUTCDate() : parsedDate.getDate();
+		const month = localeData.months[monthIndex] || '';
+
+		return `${day} ${month} ${localeData.atWord} ${hours}:${minutes}`;
 	}
 
-	/**
-	 * Formats a date as "YYYY-MM-DD HH:mm:ss" without the timezone 'T' character.
-	 *
-	 * @param {string | Date} date - Date object or ISO date string.
-	 * @param {boolean} [utc=false] - Use UTC time if true, local time if false.
-	 * @returns {string} - Formatted string or empty string if invalid.
-	 *
-	 * @example
-	 * DateUtil.toFullDateTimeNoTZ('2024-05-23T15:30:45Z') // "2024-05-23 15:30:45"
-	 */
-	static toFullDateTimeNoTZ(date: string | Date, utc: boolean = false): string {
-		if (!this.isValidDate(date)) return '';
-		const { day, month, year, hours, minutes, seconds } = this.getDateParts(date, utc);
+	static toFullDateTimeNoTZ(date: string | Date, settings?: SettingsInput): string {
+		if (!this.isDate(date)) return '';
+		const { day, month, year, hours, minutes, seconds } = this.getDateParts(date, settings);
 		return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 	}
 
-	/**
-	 * Formats a date according to a custom pattern string.
-	 * Supported tokens:
-	 * - yyyy: full year (e.g., 2024)
-	 * - yy: two-digit year (e.g., 24)
-	 * - MM: localized month name (e.g., "января")
-	 * - mm: month number with leading zero (01-12)
-	 * - dd: day of month with leading zero (01-31)
-	 * - d: day of month without leading zero (1-31)
-	 * - HH: hours with leading zero (00-23)
-	 * - ii: minutes with leading zero (00-59)
-	 * - ss: seconds with leading zero (00-59)
-	 *
-	 * @param {string | Date} date - Date instance or ISO date string.
-	 * @param {string} pattern - Format pattern string containing tokens.
-	 * @param {boolean} [utc=false] - If true, use UTC time instead of local time.
-	 * @returns {string} Formatted date string based on the pattern.
-	 *
-	 * @example
-	 * DateUtil.toFormat(new Date('2024-12-22T15:30:00'), 'yyyy-MM-dd'); // "2024-12-22"
-	 * DateUtil.toFormat('2024-09-12', 'dd.mm.yy'); // "12.09.24"
-	 * DateUtil.toFormat('2025-01-12', 'dd MM yyyy'); // "12 января 2025"
-	 * DateUtil.toFormat('2024-12-12T12:25:00', 'dd/mm/yy HH:ii'); // "12/12/24 12:25"
-	 */
-	static toFormat(date: string | Date, pattern: string, utc: boolean = false): string {
-		if (!this.isValidDate(date)) return '';
+	static toFormat(date: string | Date, pattern: string, settings?: SettingsInput): string {
+		const parsedDate = this.parseDateInput(date);
+		if (!parsedDate) return '';
 
-		const d = date instanceof Date ? date : new Date(date);
-		const yearFull = utc ? d.getUTCFullYear() : d.getFullYear();
-		const yearShort = String(yearFull).slice(-2);
-		const monthNum = utc ? d.getUTCMonth() : d.getMonth();
-		const dayNum = utc ? d.getUTCDate() : d.getDate();
-		const hoursNum = utc ? d.getUTCHours() : d.getHours();
-		const minutesNum = utc ? d.getUTCMinutes() : d.getMinutes();
-		const secondsNum = utc ? d.getUTCSeconds() : d.getSeconds();
-
-		const months = this.localeData.months;
+		const normalized = this.normalizeSettings(settings);
+		const localeData = this.resolveLocaleData(normalized.locale);
+		const { day, month, year, hours, minutes, seconds } = this.getDateParts(parsedDate, normalized);
+		const monthIndex = normalized.utc ? parsedDate.getUTCMonth() : parsedDate.getMonth();
+		const yearShort = String(year).slice(-2);
 
 		const replacements = {
-			yyyy: String(yearFull),
+			yyyy: String(year),
 			yy: yearShort,
-			MM: months[monthNum] || '',
-			mm: this.pad(monthNum + 1),
-			dd: this.pad(dayNum),
-			d: String(dayNum),
-			HH: this.pad(hoursNum),
-			ii: this.pad(minutesNum),
-			ss: this.pad(secondsNum)
+			MM: localeData.months[monthIndex] || '',
+			mm: month,
+			dd: day,
+			d: String(Number(day)),
+			HH: hours,
+			ii: minutes,
+			ss: seconds
 		} satisfies Record<string, string>;
 
 		return pattern.replace(/yyyy|yy|MM|mm|dd|d|HH|ii|ss/g, (match) => replacements[match as keyof typeof replacements]);
+	}
+
+	private static normalizeSettings(settings?: SettingsInput): Required<DateUtilSettings> {
+		if (typeof settings === 'boolean') {
+			return {
+				utc: settings,
+				locale: this.resolveLocale(),
+				timeZone: ''
+			};
+		}
+
+		return {
+			utc: settings?.utc ?? false,
+			locale: settings?.locale ?? this.resolveLocale(),
+			timeZone: settings?.timeZone ?? ''
+		};
+	}
+
+	private static resolveLocale(): string {
+		const resolverLocale = this._localeResolver?.();
+		const locale = typeof resolverLocale === 'string' && resolverLocale.trim().length ? resolverLocale : this._defaultLocale;
+		return locale;
+	}
+
+	private static resolveLocaleData(locale: string): LocaleData {
+		const lang = this.normalizeLanguage(locale);
+		const predefined = this.DEFAULT_LOCALES[lang as keyof typeof this.DEFAULT_LOCALES];
+		if (predefined) {
+			return predefined;
+		}
+
+		return {
+			months: this.buildMonthsViaIntl(locale),
+			atWord: this.FALLBACK_AT_WORD_BY_LANG[lang] ?? 'at'
+		};
+	}
+
+	private static buildMonthsViaIntl(locale: string): string[] {
+		const formatter = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' });
+		return Array.from({ length: 12 }, (_, monthIndex) => formatter.format(new Date(Date.UTC(2024, monthIndex, 1))));
+	}
+
+	private static normalizeLanguage(locale: string): string {
+		return locale.toLowerCase().split('-')[0] || 'en';
+	}
+
+	private static getDatePartsForTimeZone(date: Date, timeZone: string): DateFragments {
+		const formatter = new Intl.DateTimeFormat('en-CA', {
+			timeZone,
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hour12: false
+		});
+
+		const parts = formatter.formatToParts(date);
+		const lookup = (type: Intl.DateTimeFormatPartTypes): string => parts.find((part) => part.type === type)?.value ?? '';
+
+		return {
+			day: lookup('day'),
+			month: lookup('month'),
+			year: Number(lookup('year') || 0),
+			hours: lookup('hour'),
+			minutes: lookup('minute'),
+			seconds: lookup('second')
+		};
+	}
+
+	private static parseDateInput(date: string | Date): Date | null {
+		if (date instanceof Date) {
+			return Number.isNaN(date.getTime()) ? null : new Date(date.getTime());
+		}
+
+		const raw = date.trim();
+		if (!raw) return null;
+
+		const dateOnlyMatch = raw.match(ISO_DATE_RE);
+		if (dateOnlyMatch) {
+			const [, y, m, d] = dateOnlyMatch;
+			const year = Number(y);
+			const month = Number(m);
+			const day = Number(d);
+			const parsed = new Date(year, month - 1, day, 0, 0, 0, 0);
+			if (Number.isNaN(parsed.getTime()) || parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) {
+				return null;
+			}
+			return parsed;
+		}
+
+		const dateTimeMatch = raw.match(ISO_DATE_TIME_RE);
+		if (!dateTimeMatch) return null;
+
+		const parsed = new Date(raw);
+		if (Number.isNaN(parsed.getTime())) return null;
+		return parsed;
 	}
 }
