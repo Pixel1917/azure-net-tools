@@ -80,12 +80,9 @@
 		"vitest": "^3.2.4",
 		"happy-dom": "^15.11.7",
 		"@commitlint/cli": "^19.7.1",
-		"@semantic-release/git": "^10.0.1",
 		"commitizen": "^4.3.1",
-		"env-cmd": "^10.1.0",
 		"git-cz": "^4.9.0",
-		"husky": "^9.1.7",
-		"semantic-release": "^24.2.3"
+		"husky": "^9.1.7"
 	},
 	"config": {
 		"commitizen": {

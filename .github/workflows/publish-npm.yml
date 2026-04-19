@@ -1,0 +1,108 @@
+name: Publish NPM Package
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+concurrency:
+  group: npm-publish-master
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: 0
+
+      - name: Detect or bump version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+
+          if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            PREV_VERSION=$(git show HEAD~1:package.json | node -e "const fs=require('fs');const s=fs.readFileSync(0,'utf8');console.log(JSON.parse(s).version)")
+          else
+            PREV_VERSION=""
+          fi
+
+          echo "Current version: $CURRENT_VERSION"
+          echo "Previous version: $PREV_VERSION"
+
+          BUMPED=false
+          if [ "$CURRENT_VERSION" = "$PREV_VERSION" ]; then
+            npm version patch --no-git-tag-version
+            CURRENT_VERSION=$(node -p "require('./package.json').version")
+            BUMPED=true
+            echo "Auto-bumped patch version to $CURRENT_VERSION"
+          else
+            echo "Version already changed in commit history, keeping $CURRENT_VERSION"
+          fi
+
+          echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "bumped=$BUMPED" >> "$GITHUB_OUTPUT"
+
+      - name: Typecheck
+        run: pnpm check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Publish to npm
+        run: pnpm publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Commit auto-bumped version
+        if: steps.version.outputs.bumped == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore(release): v${{ steps.version.outputs.version }} [skip ci]"
+
+      - name: Create and push git tag
+        run: |
+          set -euo pipefail
+          TAG="v${{ steps.version.outputs.version }}"
+
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists locally"
+          else
+            git tag "$TAG"
+          fi
+
+          git push origin master
+          git push origin "$TAG"
