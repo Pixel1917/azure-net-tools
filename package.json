@@ -74,7 +74,6 @@
 		"@commitlint/cli": "^19.7.1",
 		"@types/node": "^22.15.21",
 		"commitizen": "^4.3.1",
-		"env-cmd": "^11.0.0",
 		"git-cz": "^4.9.0",
 		"happy-dom": "^20.8.9",
 		"husky": "^9.1.7",
