@@ -28,7 +28,7 @@ Detects the current execution environment:
 For build-time env flags (for dead code elimination), use:
 
 ```ts
-import { BROWSER, DEV, NODE } from 'azure-net-tools/environment';
+import { BROWSER, DEV, NODE } from '@azure-net/tools/environment';
 ```
 
 ---
@@ -121,7 +121,7 @@ Utility class for converting between `FormData` and deeply nested JavaScript obj
 #### Example usage
 
 ```ts
-import { FormDataUtil } from 'azure-net-tools';
+import { FormDataUtil } from '@azure-net/tools';
 
 // Convert FormData to object
 const formData = new FormData();
@@ -257,7 +257,7 @@ LocalStorageUtil.clear();
 ## Usage Example
 
 ```ts
-import { EnvironmentUtil, TextUtil, ObjectUtil, DebounceUtil, LocalStorageUtil } from 'azure-net-tools';
+import { EnvironmentUtil, TextUtil, ObjectUtil, DebounceUtil, LocalStorageUtil } from '@azure-net/tools';
 
 if (EnvironmentUtil.isBrowser) {
 	console.log(TextUtil.capitalize('hello world'));
