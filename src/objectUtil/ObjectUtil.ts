@@ -57,32 +57,46 @@ export class ObjectUtil {
 	/**
 	 * Deeply compares two values for equality.
 	 * Functions are compared by their string representation.
-	 * @param v1 - First value.
-	 * @param v2 - Second value.
+	 * @param a - First value.
+	 * @param b - Second value.
 	 * @returns `true` if equal, `false` otherwise.
 	 */
-	static equals(v1: unknown, v2: unknown): boolean {
-		if (typeof v1 !== typeof v2) {
-			return false;
-		}
-		if (typeof v1 === 'function' && typeof v2 === 'function') {
-			return v1.toString() === v2.toString();
-		}
-		if (v1 instanceof Object && v2 instanceof Object) {
-			if (this.countProps(v1) !== this.countProps(v2)) {
-				return false;
-			}
-			let r = true;
-			for (const k in v1) {
-				r = this.equals(v1[k as never], v2[k as never]);
-				if (!r) {
-					return false;
-				}
+	static equals(a: unknown, b: unknown): boolean {
+		if (Object.is(a, b)) return true;
+
+		if (typeof a !== typeof b) return false;
+		if (a == null || b == null) return false;
+
+		if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
+		if (a instanceof RegExp && b instanceof RegExp) return a.source === b.source && a.flags === b.flags;
+
+		if (Array.isArray(a) || Array.isArray(b)) {
+			if (!Array.isArray(a) || !Array.isArray(b)) return false;
+			if (a.length !== b.length) return false;
+			for (let i = 0; i < a.length; i++) {
+				if (!this.equals(a[i], b[i])) return false;
 			}
 			return true;
-		} else {
-			return v1 === v2;
 		}
+
+		if (typeof a === 'object' && typeof b === 'object') {
+			if (Object.getPrototypeOf(a) !== Object.getPrototypeOf(b)) return false;
+
+			const aObj = a as Record<string, unknown>;
+			const bObj = b as Record<string, unknown>;
+
+			const aKeys = Object.keys(aObj);
+			const bKeys = Object.keys(bObj);
+			if (aKeys.length !== bKeys.length) return false;
+
+			for (const key of aKeys) {
+				if (!Object.prototype.hasOwnProperty.call(bObj, key)) return false;
+				if (!this.equals(aObj[key], bObj[key])) return false;
+			}
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
