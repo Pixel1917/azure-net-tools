@@ -1,1 +1,1 @@
-pnpm publish
+env-cmd pnpm publish
