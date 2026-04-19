@@ -6,7 +6,7 @@ Ideal for TypeScript/JavaScript projects, covering a wide range of tasks: object
 ## Installation
 
 ```bash
-npm install azure-net-tools
+npm install @azure-net/tools
 ```
 
 ## Utilities
