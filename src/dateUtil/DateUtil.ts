@@ -94,6 +94,10 @@ export class DateUtil {
 		this._localeResolver = localeResolver;
 	}
 
+	static setDefaultLocale(locale: string): void {
+		this._defaultLocale = locale;
+	}
+
 	static clearLocaleResolver(): void {
 		this._localeResolver = undefined;
 	}

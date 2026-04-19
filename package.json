@@ -64,11 +64,8 @@
 		"check": "tsc --noEmit",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"prepare": "node -e \"if (process.env.NODE_ENV !== 'production'){process.exit(1)} \" || husky",
-		"precommit": "pnpm format && pnpm check",
-		"semantic-release": "env-cmd semantic-release",
+		"prepare": "husky",
 		"commit": "pnpm format && git add . && git-cz && git push",
-		"release": "pnpm commit && pnpm build && pnpm commit &&  pnpm semantic-release",
 		"pub": "pnpm build && pnpm publish"
 	},
 	"keywords": [],
