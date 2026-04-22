@@ -1,4 +1,4 @@
-import { EnvironmentUtil } from '../environmentUtil/EnvironmentUtil.js';
+import { BROWSER } from '../../environment';
 
 /**
  * Utility class for triggering file downloads in the browser.
@@ -14,7 +14,7 @@ export class DownloadUtil {
 	 * DownloadUtil.download('https://example.com/file.pdf', 'myfile.pdf');
 	 */
 	static download(file: string | Blob | File = '', fileName: string = 'download') {
-		if (!EnvironmentUtil.isBrowser || !file) return;
+		if (!BROWSER || !file) return;
 
 		const { fileUrl, isObjectUrl } = this.getFileString(file);
 		const link = document.createElement('a');

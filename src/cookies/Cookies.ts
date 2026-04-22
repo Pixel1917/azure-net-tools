@@ -1,4 +1,4 @@
-import { EnvironmentUtil } from '../environmentUtil/EnvironmentUtil.js';
+import { BROWSER } from '../../environment';
 
 /**
  * Utility class for managing cookies in the browser environment.
@@ -12,7 +12,7 @@ export class Cookies {
 	 * @private
 	 */
 	private static isSupported(): boolean {
-		return EnvironmentUtil.isBrowser && typeof document !== 'undefined' && navigator.cookieEnabled;
+		return BROWSER && typeof document !== 'undefined' && navigator.cookieEnabled;
 	}
 
 	/**

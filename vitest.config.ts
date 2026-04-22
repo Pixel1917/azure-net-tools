@@ -9,6 +9,7 @@ export default defineConfig({
 		globals: false,
 	},
 	resolve: {
+		conditions: ['browser', 'development', 'module', 'import', 'default'],
 		alias: {
 			'azure-net-tools': resolve(__dirname, 'src/index.ts'),
 		},

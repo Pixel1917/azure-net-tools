@@ -1,4 +1,4 @@
-import { EnvironmentUtil } from '../environmentUtil/EnvironmentUtil.js';
+import { BROWSER } from '../../environment';
 
 /**
  * Utility class for managing localStorage in the browser environment.
@@ -12,7 +12,7 @@ export class LocalStorageUtil {
 	 * @private
 	 */
 	private static isSupported(): boolean {
-		if (!EnvironmentUtil.isBrowser || typeof window === 'undefined') return false;
+		if (!BROWSER || typeof window === 'undefined') return false;
 		try {
 			const key = '__storage_test__';
 			window.localStorage.setItem(key, '');
