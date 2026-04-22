@@ -1,4 +1,4 @@
-import { BROWSER } from '../../environment';
+import { BROWSER } from '../../environment.js';
 
 /**
  * Utility class for triggering file downloads in the browser.
