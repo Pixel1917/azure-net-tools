@@ -107,6 +107,13 @@ Object utilities:
 * `omit(obj, keys)` — returns object without the given keys (typed as `Omit<T, K>`).
 * `renderAsString(obj, options?)` — pretty-printed, syntax-highlighted JSON HTML. Wrapped in `<pre><code>` by default.  Pass `{ wrap: false }` to get only the inner highlighted string.
 
+`deepClone` uses JSON serialization by default (`structured = false`). This default is SSR-safe and predictable in runtimes where `structuredClone` may not exist, but it also means JSON limitations apply: functions, `undefined`, symbols and prototypes are not preserved, and `Date` becomes a string. Pass `true` when the current runtime supports `structuredClone` and you need richer cloning semantics for values such as `Date`, `Map`, `Set`, `Blob` or circular-safe structured data.
+
+```ts
+const jsonSafeCopy = ObjectUtil.deepClone(value);
+const structuredCopy = ObjectUtil.deepClone(value, true);
+```
+
 ---
 
 ### `FormDataUtil`

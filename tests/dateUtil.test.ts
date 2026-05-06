@@ -65,6 +65,10 @@ describe('DateUtil', () => {
 		it('formats date and time in utc mode', () => {
 			expect(DateUtil.toDateTime('2024-05-23T15:30:00Z', { utc: true })).toBe('23.05.2024 15:30');
 		});
+
+		it('formats ISO strings with long fractional seconds', () => {
+			expect(DateUtil.toDateTime('2024-05-23T15:30:00.123456Z', { utc: true })).toBe('23.05.2024 15:30');
+		});
 	});
 
 	describe('toDayMonthTime', () => {
