@@ -45,7 +45,7 @@ describe('DebounceUtil', () => {
 	});
 
 	it('supports flush', () => {
-		const fn = vi.fn(() => 'ok');
+		const fn = vi.fn((_value: number) => 'ok');
 		const debounced = DebounceUtil.debounce(fn, 100);
 
 		debounced(7);
@@ -98,5 +98,15 @@ describe('DebounceUtil', () => {
 		expect(flushResult).toBe(5);
 		expect(fn).toHaveBeenCalledTimes(1);
 		expect(fn).toHaveBeenCalledWith(4);
+	});
+
+	it('debounceAsync forwards rejection without an extra unhandled promise', async () => {
+		const error = new Error('failed');
+		const debounced = DebounceUtil.debounceAsync(async () => Promise.reject(error), 100);
+		const promise = debounced();
+		const assertion = expect(promise).rejects.toBe(error);
+
+		await vi.advanceTimersByTimeAsync(100);
+		await assertion;
 	});
 });

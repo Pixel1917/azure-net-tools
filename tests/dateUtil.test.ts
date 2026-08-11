@@ -3,7 +3,6 @@ import { DateUtil } from '../src/dateUtil/DateUtil.js';
 
 afterEach(() => {
 	DateUtil.clearLocaleResolver();
-	DateUtil.setDefaultLocale('ru');
 });
 
 describe('DateUtil', () => {
@@ -24,6 +23,15 @@ describe('DateUtil', () => {
 			expect(DateUtil.isDate('invalid')).toBe(false);
 			expect(DateUtil.isDate('05/23/2024')).toBe(false);
 			expect(DateUtil.isDate('2024-13-10')).toBe(false);
+			expect(DateUtil.isDate('2024-02-31T10:00:00')).toBe(false);
+			expect(DateUtil.isDate('2023-02-29T10:00:00')).toBe(false);
+			expect(DateUtil.isDate('2024-01-01T24:00:00')).toBe(false);
+			expect(DateUtil.isDate('2024-01-01T10:00:00+24:00')).toBe(false);
+		});
+
+		it('parses validated offsets without delegating to Date string parsing', () => {
+			expect(DateUtil.toDateTime('2024-01-01T10:30:00+02:30', { utc: true })).toBe('01.01.2024 08:00');
+			expect(DateUtil.toDateTime('2024-01-01 10:30:00', { utc: false })).not.toBe('');
 		});
 	});
 
@@ -53,6 +61,10 @@ describe('DateUtil', () => {
 			expect(DateUtil.toDate('2024-05-23')).toBe('23.05.2024');
 			expect(DateUtil.toDate('invalid')).toBe('');
 		});
+
+		it('does not shift calendar dates in UTC mode', () => {
+			expect(DateUtil.toDate('2024-01-01', { utc: true })).toBe('01.01.2024');
+		});
 	});
 
 	describe('toTime', () => {
@@ -77,6 +89,13 @@ describe('DateUtil', () => {
 			expect(DateUtil.toDayMonthTime('2024-08-15T15:00:00Z', { utc: true })).toBe('15 August at 15:00');
 		});
 
+		it('uses the selected time zone for date, month and time', () => {
+			expect(DateUtil.toDayMonthTime('2024-03-01T01:00:00Z', { timeZone: 'America/New_York', locale: 'en' })).toBe('29 February at 20:00');
+			expect(DateUtil.toFormat('2024-03-01T01:00:00Z', 'd MM yyyy HH:ii', { timeZone: 'America/New_York', locale: 'en' })).toBe(
+				'29 February 2024 20:00'
+			);
+		});
+
 		it('falls back to Intl for unknown locale', () => {
 			const value = DateUtil.toDayMonth('2024-08-15', { locale: 'pl-PL' });
 			expect(value.startsWith('15 ')).toBe(true);
@@ -92,15 +111,29 @@ describe('DateUtil', () => {
 	});
 
 	describe('locale resolution', () => {
-		it('uses default locale when resolver is not set', () => {
-			expect(DateUtil.locale).toBe('ru');
-			DateUtil.setDefaultLocale('en');
+		it('uses English when resolver is not set', () => {
 			expect(DateUtil.locale).toBe('en');
 		});
 
 		it('uses resolver locale when set', () => {
 			DateUtil.setLocale(() => 'ja');
 			expect(DateUtil.locale).toBe('ja');
+		});
+	});
+
+	describe('comparison', () => {
+		it('compares valid dates', () => {
+			expect(DateUtil.compare('2024-01-01', '2024-01-02')).toBe(-1);
+			expect(DateUtil.isBefore('2024-01-01', '2024-01-02')).toBe(true);
+			expect(DateUtil.isAfter('2024-01-02', '2024-01-01')).toBe(true);
+			expect(DateUtil.isSame('2024-01-01', '2024-01-01')).toBe(true);
+			expect(DateUtil.isBetween('2024-01-02', '2024-01-01', '2024-01-03')).toBe(true);
+			expect(DateUtil.isBetween('2024-01-01', '2024-01-01', '2024-01-03', false)).toBe(false);
+		});
+
+		it('returns safe results for invalid dates', () => {
+			expect(DateUtil.compare('invalid', '2024-01-01')).toBeNull();
+			expect(DateUtil.isFuture('invalid')).toBe(false);
 		});
 	});
 

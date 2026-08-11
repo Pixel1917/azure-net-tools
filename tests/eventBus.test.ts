@@ -155,4 +155,28 @@ describe('EventBus', () => {
 		// @ts-expect-error wrong event payload factory type
 		await bus.publish('ev', () => 'wrong');
 	});
+	it('accepts event maps declared as interfaces', () => {
+		interface InterfaceEvents {
+			ready: { id: number };
+		}
+		const bus = new EventBus<InterfaceEvents>();
+		bus.subscribe('ready', (payload) => {
+			expectTypeOf(payload).toEqualTypeOf<{ id: number }>();
+		});
+	});
+	it('supports parallel listener execution', async () => {
+		const bus = new EventBus<TestEvents>({}, { mode: 'parallel' });
+		let running = 0;
+		let maxRunning = 0;
+		const listener = async () => {
+			running += 1;
+			maxRunning = Math.max(maxRunning, running);
+			await Promise.resolve();
+			running -= 1;
+		};
+		bus.subscribe('ev', listener);
+		bus.subscribe('ev', async () => listener());
+		await bus.publish('ev', () => 1);
+		expect(maxRunning).toBe(2);
+	});
 });

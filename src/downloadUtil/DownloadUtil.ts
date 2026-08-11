@@ -31,7 +31,7 @@ export class DownloadUtil {
 		} finally {
 			link.remove();
 			if (isObjectUrl) {
-				URL.revokeObjectURL(fileUrl);
+				setTimeout(() => URL.revokeObjectURL(fileUrl), 0);
 			}
 		}
 	}

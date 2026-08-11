@@ -15,6 +15,20 @@ describe('FormDataUtil', () => {
 			fd.set('user[age]', '30');
 			expect(FormDataUtil.toObject(fd)).toEqual({ user: { name: 'Alice', age: '30' } });
 		});
+		it('converts indexed and append array notation', () => {
+			const fd = new FormData();
+			fd.append('tags[]', 'one');
+			fd.append('tags[]', 'two');
+			fd.set('users[0][name]', 'Alice');
+			fd.set('users[1][name]', 'Bob');
+			expect(FormDataUtil.toObject(fd)).toEqual({ tags: ['one', 'two'], users: [{ name: 'Alice' }, { name: 'Bob' }] });
+		});
+		it.each(['__proto__[polluted]', 'constructor[prototype][polluted]', 'safe[prototype][polluted]'])('rejects unsafe path %s', (path) => {
+			const fd = new FormData();
+			fd.set(path, 'yes');
+			expect(() => FormDataUtil.toObject(fd)).toThrow(/Unsafe field path/);
+			expect(({} as { polluted?: string }).polluted).toBeUndefined();
+		});
 	});
 	describe('fromObject', () => {
 		it('converts flat object to FormData', () => {

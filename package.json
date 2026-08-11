@@ -17,9 +17,10 @@
 		"registry": "https://registry.npmjs.org/"
 	},
 	"license": "MIT",
-	"version": "1.2.7",
+	"version": "2.0.0",
 	"main": "dist/index.js",
 	"types": "dist/types/index.d.ts",
+	"sideEffects": false,
 	"exports": {
 		".": {
 			"types": "./dist/types/index.d.ts",
@@ -62,8 +63,8 @@
 		"build": "tsc",
 		"format": "prettier --write 'src/**/*.ts'",
 		"lint": "eslint \"src/**/*.ts\"",
-		"check": "tsc --noEmit",
-		"test": "vitest run",
+		"check": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+		"test": "vitest run && vitest run --config vitest.node.config.ts",
 		"test:watch": "vitest",
 		"prepare": "husky",
 		"commit": "pnpm format && git add . && git-cz && git push",

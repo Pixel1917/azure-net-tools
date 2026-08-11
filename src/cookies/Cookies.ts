@@ -1,5 +1,9 @@
 import { BROWSER } from '../../environment.js';
 
+export type CookieReadOptions = {
+	parse?: boolean;
+};
+
 /**
  * Utility class for managing cookies in the browser environment.
  * Supports setting, getting, deleting, checking, and clearing cookies.
@@ -12,7 +16,7 @@ export class Cookies {
 	 * @private
 	 */
 	private static isSupported(): boolean {
-		return BROWSER && typeof document !== 'undefined' && navigator.cookieEnabled;
+		return BROWSER && typeof document !== 'undefined' && typeof navigator !== 'undefined' && navigator.cookieEnabled;
 	}
 
 	/**
@@ -55,10 +59,16 @@ export class Cookies {
 		const encodedKey = encodeURIComponent(key);
 
 		let serializedValue: string;
-		if (typeof value === 'string') {
-			serializedValue = encodeURIComponent(value);
-		} else {
-			serializedValue = encodeURIComponent(JSON.stringify(value));
+		try {
+			const rawValue = typeof value === 'string' ? value : JSON.stringify(value);
+			if (rawValue === undefined) {
+				console.warn('Cookie value is not JSON-serializable.');
+				return;
+			}
+			serializedValue = encodeURIComponent(rawValue);
+		} catch {
+			console.warn('Cookie serialization failed.');
+			return;
 		}
 
 		let cookieString = `${encodedKey}=${serializedValue}`;
@@ -104,7 +114,7 @@ export class Cookies {
 	 * @param {string} key - The cookie key to retrieve.
 	 * @returns {T | null} The cookie value, parsed as type T or null if not found.
 	 */
-	public static get<T = string>(key: string): T | null {
+	public static get<T = string>(key: string, options?: CookieReadOptions): T | null {
 		if (!this.isSupported()) {
 			console.warn('Cookies are not supported in this browser.');
 			return null;
@@ -117,7 +127,13 @@ export class Cookies {
 			const [cookieKey] = cookie.split('=', 2);
 			if (cookieKey === encodedKey) {
 				const cookieValue = cookie.substring(cookieKey.length + 1);
-				const decodedValue = decodeURIComponent(cookieValue);
+				let decodedValue: string;
+				try {
+					decodedValue = decodeURIComponent(cookieValue);
+				} catch {
+					return null;
+				}
+				if (options?.parse === false) return decodedValue as T;
 
 				try {
 					return JSON.parse(decodedValue) as T;
@@ -157,7 +173,7 @@ export class Cookies {
 	 * @returns {boolean} True if cookie exists, false otherwise.
 	 */
 	public static has(key: string): boolean {
-		return this.get(key) !== null;
+		return this.get(key, { parse: false }) !== null;
 	}
 
 	/**
@@ -166,7 +182,7 @@ export class Cookies {
 	 *
 	 * @returns {Record<string, unknown>} An object with all cookie keys and their values.
 	 */
-	public static getAll(): Record<string, unknown> {
+	public static getAll(options?: CookieReadOptions): Record<string, unknown> {
 		if (!this.isSupported()) {
 			console.warn('Cookies are not supported in this browser.');
 			return {};
@@ -178,8 +194,18 @@ export class Cookies {
 			const [key] = cookie.split('=', 2);
 			if (key) {
 				const value = cookie.substring(key.length + 1);
-				const decodedKey = decodeURIComponent(key.trim()).trim();
-				const decodedValue = decodeURIComponent(value);
+				let decodedKey: string;
+				let decodedValue: string;
+				try {
+					decodedKey = decodeURIComponent(key.trim()).trim();
+					decodedValue = decodeURIComponent(value);
+				} catch {
+					continue;
+				}
+				if (options?.parse === false) {
+					result[decodedKey] = decodedValue;
+					continue;
+				}
 				try {
 					result[decodedKey] = JSON.parse(decodedValue);
 				} catch {

@@ -1,4 +1,4 @@
-export type EventBusMap = Record<string, unknown>;
+export type EventBusMap = object;
 type EventKey<E extends EventBusMap> = Extract<keyof E, string>;
 type ListenerPayload<E extends EventBusMap> = E[EventKey<E>];
 type InternalListener = (payload: unknown) => void | Promise<void>;
@@ -22,6 +22,7 @@ export type EventBusErrorHandler<E extends EventBusMap> = (error: unknown, conte
 export type EventBusOptions<E extends EventBusMap> = {
 	maxListeners?: number;
 	onError?: EventBusErrorHandler<E>;
+	mode?: 'serial' | 'parallel';
 };
 
 /**
@@ -33,6 +34,7 @@ export class EventBus<E extends EventBusMap> {
 	private warnedChannels: Set<EventKey<E>>;
 	private readonly maxListeners: number;
 	private readonly onError?: EventBusErrorHandler<E>;
+	private readonly mode: 'serial' | 'parallel';
 
 	constructor(initialChannels: EventBusChannels<E> = {}, options: EventBusOptions<E> = {}) {
 		this.channels = new Map<EventKey<E>, Set<InternalListener>>();
@@ -40,6 +42,7 @@ export class EventBus<E extends EventBusMap> {
 		this.warnedChannels = new Set<EventKey<E>>();
 		this.maxListeners = options.maxListeners ?? 50;
 		this.onError = options.onError;
+		this.mode = options.mode ?? 'serial';
 
 		for (const [event, listeners] of Object.entries(initialChannels) as [EventKey<E>, EventBusListener<E, EventKey<E>>[]][]) {
 			for (const listener of listeners) {
@@ -110,8 +113,12 @@ export class EventBus<E extends EventBusMap> {
 
 	async publish<K extends EventKey<E>>(event: K, payloadFactory: EventBusPayloadFactory<E, K>): Promise<E[K]> {
 		const payload = await payloadFactory();
-		await this.emitToChannelListeners(event, payload);
-		await this.emitToAnyListeners(event, payload);
+		if (this.mode === 'parallel') {
+			await Promise.all([this.emitToChannelListeners(event, payload, true), this.emitToAnyListeners(event, payload, true)]);
+		} else {
+			await this.emitToChannelListeners(event, payload, false);
+			await this.emitToAnyListeners(event, payload, false);
+		}
 		return payload;
 	}
 
@@ -130,28 +137,44 @@ export class EventBus<E extends EventBusMap> {
 		console.warn(`[EventBus] Max listeners warning for event "${event}": ${size} listeners attached (limit: ${this.maxListeners}).`);
 	}
 
-	private async emitToChannelListeners<K extends EventKey<E>>(event: K, payload: E[K]): Promise<void> {
+	private async emitToChannelListeners<K extends EventKey<E>>(event: K, payload: E[K], parallel: boolean): Promise<void> {
 		const listeners = this.channels.get(event);
 		if (!listeners || listeners.size === 0) return;
 
-		for (const listener of [...listeners]) {
+		const execute = async (listener: InternalListener) => {
 			try {
 				await listener(payload);
 			} catch (error) {
 				this.handleError(error, { event, payload, phase: 'listener' });
 			}
+		};
+		const snapshot = [...listeners];
+		if (parallel) {
+			await Promise.all(snapshot.map(execute));
+			return;
+		}
+		for (const listener of snapshot) {
+			await execute(listener);
 		}
 	}
 
-	private async emitToAnyListeners<K extends EventKey<E>>(event: K, payload: E[K]): Promise<void> {
+	private async emitToAnyListeners<K extends EventKey<E>>(event: K, payload: E[K], parallel: boolean): Promise<void> {
 		if (this.anyListeners.size === 0) return;
 
-		for (const listener of [...this.anyListeners]) {
+		const execute = async (listener: EventBusAnyListener<E>) => {
 			try {
 				await listener(event, payload as ListenerPayload<E>);
 			} catch (error) {
 				this.handleError(error, { event, payload, phase: 'any-listener' });
 			}
+		};
+		const snapshot = [...this.anyListeners];
+		if (parallel) {
+			await Promise.all(snapshot.map(execute));
+			return;
+		}
+		for (const listener of snapshot) {
+			await execute(listener);
 		}
 	}
 

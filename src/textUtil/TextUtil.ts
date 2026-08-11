@@ -49,9 +49,9 @@ export class TextUtil {
 	 * Truncates a string to a specified maximum length, adding ellipsis if truncated.
 	 *
 	 * @param text - The input string to truncate.
-	 * @param maxLength - Maximum allowed length of the string.
+	 * @param maxLength - Maximum number of source characters kept before the ellipsis.
 	 * @param ellipsis - Optional ellipsis string to append (default: '...').
-	 * @returns Truncated string with ellipsis if needed.
+	 * @returns Truncated string with ellipsis if needed. Its final length can be `maxLength + ellipsis.length`.
 	 */
 	public static truncate(text: string, maxLength: number, ellipsis = '...'): string {
 		if (text.length <= maxLength) return text;

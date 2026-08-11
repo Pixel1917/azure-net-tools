@@ -11,6 +11,11 @@ describe('UidGenerator', () => {
 		it('default length is 16', () => {
 			expect(UidGenerator.generateUniqueString()).toHaveLength(16);
 		});
+		it('validates length and alphabet', () => {
+			expect(() => UidGenerator.generateUniqueString(-1)).toThrow(RangeError);
+			expect(() => UidGenerator.generateUniqueString(4, '')).toThrow(RangeError);
+			expect(UidGenerator.generateUniqueString(70_000)).toHaveLength(70_000);
+		});
 	});
 	describe('generateUniqueNumber', () => {
 		it('returns number in range', () => {
@@ -19,6 +24,19 @@ describe('UidGenerator', () => {
 				expect(n).toBeGreaterThanOrEqual(1);
 				expect(n).toBeLessThanOrEqual(10);
 			}
+		});
+		it('supports the default safe integer range without negative values', () => {
+			for (let index = 0; index < 1_000; index += 1) {
+				const value = UidGenerator.generateUniqueNumber();
+				expect(Number.isSafeInteger(value)).toBe(true);
+				expect(value).toBeGreaterThanOrEqual(0);
+				expect(value).toBeLessThanOrEqual(Number.MAX_SAFE_INTEGER);
+			}
+		});
+		it('validates bounds and supports a single-value range', () => {
+			expect(UidGenerator.generateUniqueNumber(5, 5)).toBe(5);
+			expect(() => UidGenerator.generateUniqueNumber(10, 5)).toThrow(RangeError);
+			expect(() => UidGenerator.generateUniqueNumber(1.5, 5)).toThrow(RangeError);
 		});
 	});
 	describe('generateUuid', () => {

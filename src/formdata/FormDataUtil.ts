@@ -1,4 +1,92 @@
 export class FormDataUtil {
+	private static readonly BLOCKED_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor']);
+	private static readonly MAX_PATH_DEPTH = 100;
+	private static readonly MAX_ARRAY_INDEX = 1_000_000;
+
+	private static parsePath(key: string): string[] {
+		const segments: string[] = [];
+		const matcher = /([^\[\]]+)|\[([^\]]*)\]/g;
+		let match: RegExpExecArray | null;
+
+		while ((match = matcher.exec(key)) !== null) {
+			segments.push(match[1] ?? match[2] ?? '');
+		}
+
+		if (segments.length === 0 || segments.length > this.MAX_PATH_DEPTH) {
+			throw new Error(`[FormDataUtil] Invalid field path: "${key}"`);
+		}
+
+		for (const segment of segments) {
+			if (this.BLOCKED_PATH_SEGMENTS.has(segment)) {
+				throw new Error(`[FormDataUtil] Unsafe field path segment: "${segment}"`);
+			}
+		}
+
+		return segments;
+	}
+
+	private static isArraySegment(segment: string): boolean {
+		return segment === '' || /^\d+$/.test(segment);
+	}
+
+	private static getArrayIndex(segment: string): number {
+		const index = Number(segment);
+		if (!Number.isSafeInteger(index) || index < 0 || index > this.MAX_ARRAY_INDEX) {
+			throw new Error(`[FormDataUtil] Invalid array index: "${segment}"`);
+		}
+		return index;
+	}
+
+	private static assignNestedValue(target: Record<string, unknown>, keys: string[], value: unknown): void {
+		let current: Record<string, unknown> | unknown[] = target;
+
+		for (let index = 0; index < keys.length - 1; index += 1) {
+			const key = keys[index]!;
+			const nextKey = keys[index + 1]!;
+			const nextContainer: Record<string, unknown> | unknown[] = this.isArraySegment(nextKey) ? [] : {};
+
+			if (Array.isArray(current)) {
+				if (key === '') {
+					current.push(nextContainer);
+					current = nextContainer;
+					continue;
+				}
+
+				const arrayIndex = this.getArrayIndex(key);
+				const existing = current[arrayIndex];
+				if (typeof existing !== 'object' || existing === null) {
+					current[arrayIndex] = nextContainer;
+				}
+				current = current[arrayIndex] as Record<string, unknown> | unknown[];
+				continue;
+			}
+
+			const existing = Object.prototype.hasOwnProperty.call(current, key) ? current[key] : undefined;
+			if (typeof existing !== 'object' || existing === null) {
+				current[key] = nextContainer;
+			}
+			current = current[key] as Record<string, unknown> | unknown[];
+		}
+
+		const lastKey = keys.at(-1)!;
+		if (Array.isArray(current)) {
+			if (lastKey === '') {
+				current.push(value);
+				return;
+			}
+			current[this.getArrayIndex(lastKey)] = value;
+			return;
+		}
+
+		if (Object.prototype.hasOwnProperty.call(current, lastKey)) {
+			const previous = current[lastKey];
+			current[lastKey] = Array.isArray(previous) ? [...previous, value] : [previous, value];
+			return;
+		}
+
+		current[lastKey] = value;
+	}
+
 	/**
 	 * Converts a FormData instance into a nested JavaScript object.
 	 * Supports keys with bracket notation like "foo[bar][baz]".
@@ -11,38 +99,8 @@ export class FormDataUtil {
 	static toObject<T = object>(formData: FormData): T {
 		const obj: Record<string, unknown> = {};
 
-		const assignNestedValue = (target: Record<string, unknown> | unknown[], keys: string[], value: unknown): void => {
-			const lastKey = keys.pop();
-			if (!lastKey) return;
-
-			let current: Record<string, unknown> | unknown[] = target;
-			for (const key of keys) {
-				if (typeof current !== 'object' || current === null || current[key as never] === undefined || typeof current[key as never] !== 'object') {
-					current[key as never] = (/^\d+$/.test(key) ? [] : {}) as never;
-				}
-				current = current[key as never] as Record<string, unknown> | unknown[];
-			}
-
-			if (lastKey === '') {
-				if (!Array.isArray(current)) return; // safety check
-				current.push(value);
-			} else if (Array.isArray(current)) {
-				const index = parseInt(lastKey, 10);
-				current[index] = value;
-			} else if (current[lastKey] !== undefined) {
-				if (Array.isArray(current[lastKey])) {
-					(current[lastKey] as unknown[]).push(value);
-				} else {
-					current[lastKey] = [current[lastKey], value];
-				}
-			} else {
-				current[lastKey] = value;
-			}
-		};
-
 		for (const [key, value] of formData.entries()) {
-			const keys = key.split(/[\[\]]+/).filter((k) => k !== '');
-			assignNestedValue(obj, keys, value);
+			this.assignNestedValue(obj, this.parsePath(key), value);
 		}
 
 		return obj as T;
@@ -76,7 +134,7 @@ export class FormDataUtil {
 
 		if (obj instanceof Date) {
 			form.append(namespace!, obj.toISOString());
-		} else if (obj instanceof Blob) {
+		} else if (typeof Blob !== 'undefined' && obj instanceof Blob) {
 			form.append(namespace!, obj);
 		} else if (Array.isArray(obj)) {
 			obj.forEach((item, index) => {

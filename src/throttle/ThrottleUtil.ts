@@ -1,41 +1,68 @@
-/**
- * Creates a throttled function that invokes the given function at most once per `ms` milliseconds.
- * Uses leading edge: the first call runs immediately, subsequent calls within `ms` are ignored.
- *
- * @template T - Function type with arbitrary arguments and return.
- * @param {T} fn - The function to throttle.
- * @param {number} ms - Throttle interval in milliseconds.
- * @returns {(...args: Parameters<T>) => void} Throttled function.
- *
- * @example
- * const fn = ThrottleUtil.throttle((x: number) => console.log(x), 200);
- * fn(1); fn(2); fn(3); // logs 1 immediately, then 3 after 200ms
- */
+type AnyFunction = (...args: never[]) => unknown;
+
+export type ThrottledFunction<T extends AnyFunction> = ((...args: Parameters<T>) => void) & {
+	cancel: () => void;
+	flush: () => ReturnType<T> | undefined;
+	pending: () => boolean;
+};
+
+/** Creates a leading + trailing throttled function. */
 export class ThrottleUtil {
-	static throttle<T extends (...args: unknown[]) => unknown>(fn: T, ms: number): (...args: Parameters<T>) => void {
-		let last = 0;
+	static throttle<T extends AnyFunction>(fn: T, ms: number): ThrottledFunction<T> {
+		if (!Number.isFinite(ms) || ms < 0) throw new RangeError('Throttle interval must be a non-negative finite number');
+
+		let lastInvokeTime = 0;
+		let hasInvoked = false;
 		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 		let lastArgs: Parameters<T> | undefined;
-		return (...args: Parameters<T>) => {
-			lastArgs = args;
+
+		const invoke = (): ReturnType<T> | undefined => {
+			if (!lastArgs) return undefined;
+			const args = lastArgs;
+			lastArgs = undefined;
+			lastInvokeTime = Date.now();
+			hasInvoked = true;
+			return fn(...args) as ReturnType<T>;
+		};
+
+		const throttled = (...args: Parameters<T>) => {
 			const now = Date.now();
-			const elapsed = now - last;
-			if (last === 0 || elapsed >= ms) {
-				last = now;
-				fn(...args);
+			const elapsed = now - lastInvokeTime;
+			lastArgs = args;
+
+			if (!hasInvoked || elapsed >= ms) {
 				if (timeoutId !== undefined) {
 					clearTimeout(timeoutId);
 					timeoutId = undefined;
 				}
+				invoke();
 				return;
 			}
+
 			if (timeoutId === undefined) {
 				timeoutId = setTimeout(() => {
-					last = Date.now();
 					timeoutId = undefined;
-					if (lastArgs !== undefined) fn(...lastArgs);
+					invoke();
 				}, ms - elapsed);
 			}
 		};
+
+		throttled.cancel = () => {
+			if (timeoutId !== undefined) clearTimeout(timeoutId);
+			timeoutId = undefined;
+			lastArgs = undefined;
+			lastInvokeTime = 0;
+			hasInvoked = false;
+		};
+
+		throttled.flush = () => {
+			if (timeoutId !== undefined) clearTimeout(timeoutId);
+			timeoutId = undefined;
+			return invoke();
+		};
+
+		throttled.pending = () => timeoutId !== undefined;
+
+		return throttled as ThrottledFunction<T>;
 	}
 }

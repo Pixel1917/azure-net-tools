@@ -11,6 +11,14 @@ describe('ObjectUtil', () => {
 			expect(c.b).toBe(o.b);
 		});
 	});
+	describe('toEntries', () => {
+		it('maps object values and optionally transforms keys', () => {
+			expect(ObjectUtil.toEntries({ 1: 'one', 2: 'two' }, { mapKey: Number })).toEqual([
+				{ key: 1, value: 'one' },
+				{ key: 2, value: 'two' }
+			]);
+		});
+	});
 	describe('deepClone', () => {
 		it('deep copies with JSON', () => {
 			const o = { a: 1, b: { c: 2 } };
@@ -54,12 +62,7 @@ describe('ObjectUtil', () => {
 			expect(ObjectUtil.equals({ a: 1 }, { a: 2 })).toBe(false);
 		});
 		it('maps and sets', () => {
-			expect(
-				ObjectUtil.equals(
-					new Map<string, { x: number }>([['a', { x: 1 }]]),
-					new Map<string, { x: number }>([['a', { x: 1 }]])
-				)
-			).toBe(true);
+			expect(ObjectUtil.equals(new Map<string, { x: number }>([['a', { x: 1 }]]), new Map<string, { x: number }>([['a', { x: 1 }]]))).toBe(true);
 			expect(ObjectUtil.equals(new Set([1, 2]), new Set([1, 2]))).toBe(true);
 			expect(ObjectUtil.equals(new Set([1, 2]), new Set([1, 3]))).toBe(false);
 		});
@@ -69,6 +72,19 @@ describe('ObjectUtil', () => {
 			const right: { self?: unknown; x: number } = { x: 1 };
 			right.self = right;
 			expect(ObjectUtil.equals(left, right)).toBe(true);
+		});
+		it('is symmetric for shared-reference topology', () => {
+			const shared = { value: 1 };
+			const sharedGraph = { left: shared, right: shared };
+			const splitGraph = { left: { value: 1 }, right: { value: 1 } };
+			expect(ObjectUtil.equals(sharedGraph, splitGraph)).toBe(false);
+			expect(ObjectUtil.equals(splitGraph, sharedGraph)).toBe(false);
+		});
+		it('supports errors, URLs and typed arrays', () => {
+			expect(ObjectUtil.equals(new Error('x'), new Error('x'))).toBe(true);
+			expect(ObjectUtil.equals(new URL('https://example.com/a'), new URL('https://example.com/a'))).toBe(true);
+			expect(ObjectUtil.equals(new Uint8Array([1, 2]), new Uint8Array([1, 2]))).toBe(true);
+			expect(ObjectUtil.equals(new Uint8Array([1, 2]), new Uint8Array([1, 3]))).toBe(false);
 		});
 	});
 	describe('isAllKeysEmpty', () => {
@@ -87,6 +103,13 @@ describe('ObjectUtil', () => {
 			const obj = Object.create(proto) as Record<string, unknown>;
 			obj.own = null;
 			expect(ObjectUtil.isAllKeysEmpty(obj)).toBe(true);
+		});
+		it('handles circular structures and special collections', () => {
+			const value: Record<string, unknown> = { empty: null };
+			value.self = value;
+			expect(ObjectUtil.isAllKeysEmpty(value)).toBe(true);
+			expect(ObjectUtil.isAllKeysEmpty({ value: new Date() })).toBe(false);
+			expect(ObjectUtil.isAllKeysEmpty({ value: new Set([1]) })).toBe(false);
 		});
 	});
 	describe('isObjectEmpty', () => {
@@ -115,24 +138,6 @@ describe('ObjectUtil', () => {
 		it('returns object without omitted keys', () => {
 			const o = { a: 1, b: 2, c: 3 };
 			expect(ObjectUtil.omit(o, ['b'])).toEqual({ a: 1, c: 3 });
-		});
-	});
-	describe('renderAsString', () => {
-		it('returns string with pre/code by default', () => {
-			const s = ObjectUtil.renderAsString({ a: 1 });
-			expect(s).toContain('<pre');
-			expect(s).toContain('<code');
-			expect(s).toContain('json-key');
-			expect(s).toContain('json-number');
-		});
-		it('with wrap: false returns only highlighted content', () => {
-			const s = ObjectUtil.renderAsString({ a: 1 }, { wrap: false });
-			expect(s).not.toContain('<pre');
-			expect(s).toContain('json-key');
-		});
-		it('escapes HTML', () => {
-			const s = ObjectUtil.renderAsString({ x: '<script>' });
-			expect(s).toContain('&lt;');
 		});
 	});
 });

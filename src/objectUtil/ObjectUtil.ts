@@ -2,16 +2,25 @@
  * A utility class for working with JavaScript objects.
  */
 export class ObjectUtil {
-	static toKeyValueArray<T extends object, D = keyof T>(object: T, ObjectKeyAToNumber: boolean = false) {
-		return Object.entries(object).map(([key, value]) => ({ key: ObjectKeyAToNumber ? Number(key) : key, value }) as { key: D; value: T[keyof T] });
+	static toEntries<T extends object>(object: T): Array<{ key: string; value: T[keyof T] }>;
+	static toEntries<T extends object, K>(object: T, options: { mapKey: (key: string, value: T[keyof T]) => K }): Array<{ key: K; value: T[keyof T] }>;
+	static toEntries<T extends object, K>(
+		object: T,
+		options?: { mapKey?: (key: string, value: T[keyof T]) => K }
+	): Array<{ key: string | K; value: T[keyof T] }> {
+		return Object.entries(object).map(([key, value]) => ({
+			key: options?.mapKey ? options.mapKey(key, value as T[keyof T]) : key,
+			value: value as T[keyof T]
+		}));
 	}
+
 	/**
 	 * Creates a shallow copy of the given object.
 	 * @param obj - The object to clone.
 	 * @returns A shallow copy of the object.
 	 */
-	static clone<T>(obj: T): T {
-		return { ...obj };
+	static clone<T extends object>(obj: T): T {
+		return (Array.isArray(obj) ? [...obj] : { ...obj }) as T;
 	}
 
 	/**
@@ -53,13 +62,14 @@ export class ObjectUtil {
 
 	/**
 	 * Deeply compares two values for equality.
-	 * Functions are compared by their string representation.
+	 * Functions are equal only when they reference the same function.
 	 * @param a - First value.
 	 * @param b - Second value.
 	 * @returns `true` if equal, `false` otherwise.
 	 */
 	static equals(a: unknown, b: unknown): boolean {
-		const visited = new WeakMap<object, object>();
+		const leftVisited = new WeakMap<object, object>();
+		const rightVisited = new WeakMap<object, object>();
 
 		const eq = (left: unknown, right: unknown): boolean => {
 			if (Object.is(left, right)) return true;
@@ -75,11 +85,12 @@ export class ObjectUtil {
 			const leftObj = left as object;
 			const rightObj = right as object;
 
-			const cached = visited.get(leftObj);
-			if (cached) {
-				return cached === rightObj;
-			}
-			visited.set(leftObj, rightObj);
+			const cachedRight = leftVisited.get(leftObj);
+			if (cachedRight) return cachedRight === rightObj;
+			const cachedLeft = rightVisited.get(rightObj);
+			if (cachedLeft) return cachedLeft === leftObj;
+			leftVisited.set(leftObj, rightObj);
+			rightVisited.set(rightObj, leftObj);
 
 			if (Array.isArray(leftObj) || Array.isArray(rightObj)) {
 				if (!Array.isArray(leftObj) || !Array.isArray(rightObj)) return false;
@@ -109,6 +120,41 @@ export class ObjectUtil {
 				return true;
 			}
 
+			if (leftObj instanceof URL || rightObj instanceof URL) {
+				return leftObj instanceof URL && rightObj instanceof URL && leftObj.href === rightObj.href;
+			}
+
+			if (leftObj instanceof Error || rightObj instanceof Error) {
+				return (
+					leftObj instanceof Error &&
+					rightObj instanceof Error &&
+					leftObj.name === rightObj.name &&
+					leftObj.message === rightObj.message &&
+					eq((leftObj as Error & { cause?: unknown }).cause, (rightObj as Error & { cause?: unknown }).cause)
+				);
+			}
+
+			if (ArrayBuffer.isView(leftObj) || ArrayBuffer.isView(rightObj)) {
+				if (!ArrayBuffer.isView(leftObj) || !ArrayBuffer.isView(rightObj) || leftObj.constructor !== rightObj.constructor) return false;
+				const leftBytes = new Uint8Array(leftObj.buffer, leftObj.byteOffset, leftObj.byteLength);
+				const rightBytes = new Uint8Array(rightObj.buffer, rightObj.byteOffset, rightObj.byteLength);
+				if (leftBytes.length !== rightBytes.length) return false;
+				for (let index = 0; index < leftBytes.length; index += 1) {
+					if (leftBytes[index] !== rightBytes[index]) return false;
+				}
+				return true;
+			}
+
+			if (leftObj instanceof ArrayBuffer || rightObj instanceof ArrayBuffer) {
+				if (!(leftObj instanceof ArrayBuffer) || !(rightObj instanceof ArrayBuffer) || leftObj.byteLength !== rightObj.byteLength) return false;
+				const leftBytes = new Uint8Array(leftObj);
+				const rightBytes = new Uint8Array(rightObj);
+				for (let index = 0; index < leftBytes.length; index += 1) {
+					if (leftBytes[index] !== rightBytes[index]) return false;
+				}
+				return true;
+			}
+
 			if (Object.getPrototypeOf(leftObj) !== Object.getPrototypeOf(rightObj)) return false;
 
 			const leftRecord = leftObj as Record<string, unknown>;
@@ -134,24 +180,22 @@ export class ObjectUtil {
 	 * @returns `true` if all keys are empty, `false` otherwise.
 	 */
 	static isAllKeysEmpty(obj: unknown): boolean {
-		if (obj === null || obj === undefined) {
-			return true;
-		}
-		if (typeof obj !== 'object') {
-			return false;
-		}
+		const visited = new WeakSet<object>();
+		const isEmpty = (value: unknown): boolean => {
+			if (value === null || value === undefined) return true;
+			if (typeof value !== 'object') return false;
 
-		for (const key of Object.keys(obj as Record<string, unknown>)) {
-			const value = (obj as Record<string, unknown>)[key];
-			if (typeof value === 'object' && value !== null) {
-				if (!this.isAllKeysEmpty(value)) {
-					return false;
-				}
-			} else if (value !== null && value !== undefined) {
-				return false;
-			}
-		}
-		return true;
+			if (visited.has(value)) return true;
+			visited.add(value);
+
+			if (Array.isArray(value)) return value.every(isEmpty);
+			if (value instanceof Map || value instanceof Set) return value.size === 0;
+			if (value instanceof Date || value instanceof RegExp || value instanceof ArrayBuffer || ArrayBuffer.isView(value)) return false;
+
+			return Object.keys(value).every((key) => isEmpty((value as Record<string, unknown>)[key]));
+		};
+
+		return isEmpty(obj);
 	}
 
 	/**
@@ -203,40 +247,5 @@ export class ObjectUtil {
 			}
 		}
 		return result;
-	}
-
-	/**
-	 * Converts an object into a syntax-highlighted, pretty-printed HTML string.
-	 * Output is wrapped in `<pre>` and `<code>` for block display and monospace. Use CSS classes
-	 * `.object-util-json`, `.json-key`, `.json-string`, `.json-number`, `.json-boolean`, `.json-null`
-	 * to style.
-	 *
-	 * @param obj - The object to render.
-	 * @param options - Optional settings.
-	 * @param options.wrap - If true (default), wrap output in `<pre class="object-util-render"><code class="object-util-json">`.
-	 * @returns HTML string with syntax highlighting and indentation.
-	 */
-	static renderAsString(obj: unknown, options?: { wrap?: boolean }): string {
-		const wrap = options?.wrap !== false;
-		try {
-			const raw = JSON.stringify(obj, null, 2);
-			const escaped = raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-			const highlighted = escaped.replace(
-				/("(?:\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*")(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?/g,
-				(match: string, quoted?: string, colon?: string, literal?: string) => {
-					if (literal !== undefined) {
-						return literal === 'null' ? '<span class="json-null">null</span>' : `<span class="json-boolean">${literal}</span>`;
-					}
-					if (quoted !== undefined) {
-						const cls = colon !== undefined ? 'json-key' : 'json-string';
-						return `<span class="${cls}">${quoted}</span>${colon ?? ''}`;
-					}
-					return `<span class="json-number">${match}</span>`;
-				}
-			);
-			return wrap ? `<pre class="object-util-render"><code class="object-util-json">${highlighted}</code></pre>` : highlighted;
-		} catch {
-			return '';
-		}
 	}
 }

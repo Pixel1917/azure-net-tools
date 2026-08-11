@@ -1,85 +1,117 @@
 import { BROWSER } from '../../environment.js';
 
-/**
- * Utility class for managing localStorage in the browser environment.
- * Supports setting, getting, deleting, checking, and clearing items.
- * All methods are static. Uses EnvironmentUtil to avoid access on server.
- */
-export class LocalStorageUtil {
-	/**
-	 * Checks if localStorage is available in the current environment.
-	 * @returns {boolean} True if running in browser and localStorage is available.
-	 * @private
-	 */
-	private static isSupported(): boolean {
-		if (!BROWSER || typeof window === 'undefined') return false;
-		try {
-			const key = '__storage_test__';
-			window.localStorage.setItem(key, '');
-			window.localStorage.removeItem(key);
-			return true;
-		} catch {
-			return false;
-		}
+export type StorageReadOptions = {
+	parse?: boolean;
+};
+
+let storageSupported: boolean | undefined;
+let unsupportedWarningShown = false;
+
+const parseStorageValue = <T>(value: string, options?: StorageReadOptions): T => {
+	if (options?.parse === false) return value as T;
+	try {
+		return JSON.parse(value) as T;
+	} catch {
+		return value as T;
+	}
+};
+
+export class LocalStorageInstance<T = string> {
+	readonly key: string;
+	private readonly options: StorageReadOptions;
+
+	constructor(key: string, options: StorageReadOptions = {}) {
+		this.key = key;
+		this.options = options;
 	}
 
-	/**
-	 * Sets an item with the specified key and value. Serializes non-string values as JSON.
-	 *
-	 * @template T
-	 * @param {string} key - The storage key.
-	 * @param {T} value - The value to store.
-	 * @returns {void}
-	 */
-	public static set<T = string>(key: string, value: T): void {
+	set(value: T): void {
+		LocalStorageUtil.set(this.key, value);
+	}
+
+	get(options?: StorageReadOptions): T | null {
+		return LocalStorageUtil.get<T>(this.key, { ...this.options, ...options });
+	}
+
+	delete(): void {
+		LocalStorageUtil.delete(this.key);
+	}
+
+	clear(): void {
+		this.delete();
+	}
+
+	has(): boolean {
+		return LocalStorageUtil.has(this.key);
+	}
+}
+
+/** Browser-safe localStorage access with optional JSON parsing. */
+export class LocalStorageUtil {
+	private static warnUnsupported(): void {
+		if (!BROWSER || unsupportedWarningShown) return;
+		unsupportedWarningShown = true;
+		console.warn('localStorage is not supported in this environment.');
+	}
+
+	private static isSupported(): boolean {
+		if (!BROWSER || typeof window === 'undefined') return false;
+		if (storageSupported !== undefined) return storageSupported;
+
+		try {
+			const key = `__azure_net_storage_test__${Date.now()}`;
+			window.localStorage.setItem(key, '');
+			window.localStorage.removeItem(key);
+			storageSupported = true;
+		} catch {
+			storageSupported = false;
+		}
+		return storageSupported;
+	}
+
+	static createInstance<T = string>(key: string, options: StorageReadOptions = {}): LocalStorageInstance<T> {
+		if (!key) throw new Error('localStorage key must not be empty');
+		return new LocalStorageInstance<T>(key, options);
+	}
+
+	static set<T = string>(key: string, value: T): void {
 		if (!this.isSupported()) {
-			console.warn('localStorage is not supported in this environment.');
+			this.warnUnsupported();
 			return;
 		}
-		const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+
 		try {
+			const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+			if (serialized === undefined) {
+				console.warn('localStorage value is not JSON-serializable.');
+				return;
+			}
 			window.localStorage.setItem(key, serialized);
 		} catch {
 			console.warn('localStorage.setItem failed.');
 		}
 	}
 
-	/**
-	 * Retrieves the value by key. Attempts to parse JSON if possible.
-	 *
-	 * @template T
-	 * @param {string} key - The storage key to retrieve.
-	 * @returns {T | null} The value, parsed as type T, or null if not found.
-	 */
-	public static get<T = string>(key: string): T | null {
+	static get<T = string>(key: string, options?: StorageReadOptions): T | null {
 		if (!this.isSupported()) {
-			console.warn('localStorage is not supported in this environment.');
+			this.warnUnsupported();
 			return null;
 		}
+
 		try {
 			const raw = window.localStorage.getItem(key);
-			if (raw === null) return null;
-			try {
-				return JSON.parse(raw) as T;
-			} catch {
-				return raw as T;
-			}
+			return raw === null ? null : parseStorageValue<T>(raw, options);
 		} catch {
 			return null;
 		}
 	}
 
-	/**
-	 * Removes an item by key.
-	 *
-	 * @param {string} key - The storage key to remove.
-	 * @returns {void}
-	 */
-	public static delete(key: string): void {
+	static delete(key: string): void {
 		if (!this.isSupported()) {
-			console.warn('localStorage is not supported in this environment.');
+			this.warnUnsupported();
 			return;
 		}
+
 		try {
 			window.localStorage.removeItem(key);
 		} catch {
@@ -87,58 +119,52 @@ export class LocalStorageUtil {
 		}
 	}
 
-	/**
-	 * Checks if an item with the given key exists.
-	 *
-	 * @param {string} key - The storage key to check.
-	 * @returns {boolean} True if key exists, false otherwise.
-	 */
-	public static has(key: string): boolean {
+	static has(key: string): boolean {
 		if (!this.isSupported()) return false;
-		return window.localStorage.getItem(key) !== null;
+		try {
+			return window.localStorage.getItem(key) !== null;
+		} catch {
+			return false;
+		}
 	}
 
-	/**
-	 * Returns all keys in localStorage. Does not parse values.
-	 *
-	 * @returns {string[]} Array of keys.
-	 */
-	public static keys(): string[] {
+	static keys(): string[] {
 		if (!this.isSupported()) return [];
-		const n = window.localStorage.length;
-		const result: string[] = [];
-		for (let i = 0; i < n; i++) {
-			const key = window.localStorage.key(i);
-			if (key !== null) result.push(key);
+		try {
+			const result: string[] = [];
+			for (let index = 0; index < window.localStorage.length; index += 1) {
+				const key = window.localStorage.key(index);
+				if (key !== null) result.push(key);
+			}
+			return result;
+		} catch {
+			return [];
 		}
-		return result;
 	}
 
-	/**
-	 * Retrieves all items as a key-value record. Attempts to parse JSON values.
-	 *
-	 * @returns {Record<string, unknown>} Object with all keys and their values.
-	 */
-	public static getAll(): Record<string, unknown> {
+	static getAll(options?: StorageReadOptions): Record<string, unknown> {
 		if (!this.isSupported()) return {};
+
 		const result: Record<string, unknown> = {};
-		for (const key of this.keys()) {
-			const value = this.get(key);
-			if (value !== null) result[key] = value;
+		try {
+			for (let index = 0; index < window.localStorage.length; index += 1) {
+				const key = window.localStorage.key(index);
+				if (key === null) continue;
+				const value = window.localStorage.getItem(key);
+				if (value !== null) result[key] = parseStorageValue(value, options);
+			}
+		} catch {
+			return result;
 		}
 		return result;
 	}
 
-	/**
-	 * Removes all items from localStorage.
-	 *
-	 * @returns {void}
-	 */
-	public static clear(): void {
+	static clear(): void {
 		if (!this.isSupported()) {
-			console.warn('localStorage is not supported in this environment.');
+			this.warnUnsupported();
 			return;
 		}
+
 		try {
 			window.localStorage.clear();
 		} catch {

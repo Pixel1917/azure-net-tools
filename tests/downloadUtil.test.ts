@@ -1,7 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { DownloadUtil } from '../src/downloadUtil/DownloadUtil.js';
 
 describe('DownloadUtil', () => {
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => vi.useRealTimers());
 	it('does not throw when called with url and filename', () => {
 		expect(() => DownloadUtil.download('https://example.com/file.pdf', 'file.pdf')).not.toThrow();
 	});
@@ -19,6 +21,8 @@ describe('DownloadUtil', () => {
 
 		expect(createSpy).toHaveBeenCalledTimes(1);
 		expect(createSpy).toHaveBeenCalledWith(blob);
+		expect(revokeSpy).not.toHaveBeenCalled();
+		vi.runAllTimers();
 		expect(revokeSpy).toHaveBeenCalledTimes(1);
 		expect(revokeSpy).toHaveBeenCalledWith('blob://test-url');
 
@@ -35,6 +39,8 @@ describe('DownloadUtil', () => {
 
 		expect(createSpy).toHaveBeenCalledTimes(1);
 		expect(createSpy).toHaveBeenCalledWith(file);
+		expect(revokeSpy).not.toHaveBeenCalled();
+		vi.runAllTimers();
 		expect(revokeSpy).toHaveBeenCalledTimes(1);
 		expect(revokeSpy).toHaveBeenCalledWith('blob://file-url');
 

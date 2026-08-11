@@ -1,7 +1,6 @@
 # @azure-net/tools
 
-**A collection of universal utilities.**
-Ideal for TypeScript/JavaScript projects, covering a wide range of tasks: object and string manipulation, DOM observation, event bus logic, and more.
+Small, typed utilities shared by the Azure Net packages. The public entry is safe to import during SSR; browser-backed helpers return safe fallback values when browser APIs are unavailable.
 
 ## Installation
 
@@ -9,278 +8,295 @@ Ideal for TypeScript/JavaScript projects, covering a wide range of tasks: object
 npm install @azure-net/tools
 ```
 
-## Utilities
+```ts
+import { ObjectUtil, DateUtil, DebounceUtil } from '@azure-net/tools';
+```
 
-> All utilities can be imported directly from the package.
+## Environment
 
-### `EnvironmentUtil`
+`EnvironmentUtil` exposes runtime checks:
 
-Detects the current execution environment:
+- `isBrowser`, `isServer`, `isWebWorker`
+- `isDevelopment`, `isProduction`
+- `currentEnvironment()`
+- `currentMode()`
 
-* `EnvironmentUtil.isBrowser`
-* `EnvironmentUtil.isServer`
-* `EnvironmentUtil.isWebWorker`
-* `EnvironmentUtil.isDevelopment`
-* `EnvironmentUtil.isProduction`
-* `EnvironmentUtil.currentEnvironment()` → `'browser' | 'server' | 'webWorker' | 'unknown'`
-* `EnvironmentUtil.currentMode()` → `'development' | 'production' | 'unknown'`
-
-For build-time env flags (for dead code elimination), use:
+For tree-shakeable build-time flags use the dedicated entry:
 
 ```ts
 import { BROWSER, DEV, NODE } from '@azure-net/tools/environment';
 ```
 
----
-
-### `DownloadUtil`
-
-Triggers file download in the browser:
-First argument can be a string URL, Blob, or File.
+## ObjectUtil
 
 ```ts
-DownloadUtil.download('https://example.com/file.pdf', 'myFile.pdf');
+const source = { id: 1, name: 'Ada', password: 'secret' };
+
+ObjectUtil.pick(source, ['id', 'name']);
+ObjectUtil.omit(source, ['password']);
+ObjectUtil.toEntries(source);
+ObjectUtil.toEntries(source, { mapKey: (key) => key.toUpperCase() });
+ObjectUtil.equals(left, right);
+ObjectUtil.isAllKeysEmpty(value);
 ```
 
----
+Available methods:
 
-### `EventBus<E>`
+- `clone(value)` performs a shallow object or array clone.
+- `deepClone(value, structured = false)` performs a deep clone.
+- `equals(left, right)` performs symmetric, cycle-safe deep equality and preserves reference topology.
+- `compareAsString(left, right)` compares JSON representations when JSON semantics are sufficient.
+- `toEntries(value, options?)` returns typed `{ key, value }` entries and optionally maps keys.
+- `countProps`, `isObjectEmpty`, `isAllKeysEmpty`, `pick`, and `omit` cover common object operations.
 
-A lightweight event bus implementation.
-
-```ts
-type AppEvents = {
-	loaded: { status: 'ok' };
-	error: { message: string };
-};
-
-const bus = new EventBus<AppEvents>();
-
-const unsubscribe = bus.subscribe('loaded', (data) => console.log('Loaded:', data.status));
-bus.once('error', (data) => console.error(data.message));
-bus.subscribeAll((event, payload) => console.log(event, payload));
-
-await bus.publish('loaded', async () => ({ status: 'ok' }));
-unsubscribe();
-```
-
----
-
-### `IntersectionObserverUtil<T>`
-
-Simplified wrapper for `IntersectionObserver`.
-
-```ts
-const observer = new IntersectionObserverUtil(element, {
-	callback(entry) {
-		console.log('Element is visible:', entry);
-	},
-	once: true
-});
-```
-
----
-
-### `TextUtil`
-
-String utilities:
-
-* `formatText(number, ['one', 'few', 'many'])` — pluralization.
-* `truncate('long text...', 10)`
-* `capitalize('hello')` → `'Hello'`
-* `decapitalize('Hello')` → `'hello'`
-* `isEmptyOrWhitespace('   ')` → `true`
-
----
-
-### `ObjectUtil`
-
-Object utilities:
-
-* `clone(obj)` — shallow clone.
-* `deepClone(obj, structured = false)` — deep clone (via `structuredClone` or JSON).
-* `compareAsString(obj1, obj2)` — compares objects via their stringified forms.
-* `equals(obj1, obj2)` — deep equality check (supports functions).
-* `isAllKeysEmpty(obj)` — checks if all properties are `null` or `undefined`.
-* `isObjectEmpty(obj)` — checks if object has no keys.
-* `pick(obj, keys)` — returns object with only the given keys (typed as `Pick<T, K>`).
-* `omit(obj, keys)` — returns object without the given keys (typed as `Omit<T, K>`).
-* `renderAsString(obj, options?)` — pretty-printed, syntax-highlighted JSON HTML. Wrapped in `<pre><code>` by default.  Pass `{ wrap: false }` to get only the inner highlighted string.
-
-`deepClone` uses JSON serialization by default (`structured = false`). This default is SSR-safe and predictable in runtimes where `structuredClone` may not exist, but it also means JSON limitations apply: functions, `undefined`, symbols and prototypes are not preserved, and `Date` becomes a string. Pass `true` when the current runtime supports `structuredClone` and you need richer cloning semantics for values such as `Date`, `Map`, `Set`, `Blob` or circular-safe structured data.
+`deepClone` uses JSON serialization by default. This is predictable in SSR runtimes where `structuredClone` may not exist, but functions, `undefined`, symbols, prototypes, and non-JSON types are not preserved. `Date` values become strings. Pass `true` only when the runtime supports `structuredClone` and richer types or circular structures must be preserved:
 
 ```ts
 const jsonSafeCopy = ObjectUtil.deepClone(value);
 const structuredCopy = ObjectUtil.deepClone(value, true);
 ```
 
----
+## DebugUtil
 
-### `FormDataUtil`
-
-Utility class for converting between `FormData` and deeply nested JavaScript objects, supporting complex structures including arrays, nested objects, Maps, Sets, Dates, and Blob/File objects.
-
-- Converts `FormData` keys with bracket notation (e.g., `foo[bar][baz]`) into nested objects.
-- Supports serialization of objects with nested structures into `FormData`.
-- Detects cyclic references during serialization and throws an error.
-- Handles special types like `Date`, `Blob`, `File`, `Map`, and `Set`.
-
-#### Example usage
+`DebugUtil` formats arbitrary values for diagnostics without mutating them.
 
 ```ts
-import { FormDataUtil } from '@azure-net/tools';
-
-// Convert FormData to object
-const formData = new FormData();
-formData.append('user[name]', 'Alice');
-formData.append('user[age]', '30');
-const obj = FormDataUtil.toObject<{ user: { name: string; age: string } }>(formData);
-console.log(obj.user.name); // Alice
-
-// Convert object to FormData
-const objToSerialize = {
-	user: {
-		name: 'Bob',
-		age: 25,
-		files: [new File(['content'], 'file.txt')],
-		birthDate: new Date('1995-12-17')
-	}
-};
-const fd = FormDataUtil.fromObject(objToSerialize);
+const text = DebugUtil.stringify(value, { maxDepth: 6, maxEntries: 100 });
+const html = DebugUtil.render(value, { theme: 'dark' });
 ```
 
----
+- `stringify` supports cycles, `Map`, `Set`, `Date`, `RegExp`, errors, typed arrays, bigint, symbols, and functions.
+- `render` returns escaped, syntax-highlighted HTML. Objects and arrays use a readable code block; primitives use a compact gray value box.
+- `maxDepth` and `maxEntries` prevent an accidental diagnostic render from traversing an unbounded graph.
 
-### `DateUtil`
+The returned HTML is generated by the library and input strings are escaped, but it should still be mounted through the framework's normal trusted-markup mechanism intentionally.
 
-The `DateUtil` class offers helper methods to format and manipulate dates and times, including support for different locales.
+## DateUtil
 
-### Features
+Date strings are accepted only in these strict forms:
 
-* Locale resolver via `setLocale(() => localeCode)` and default locale fallback.
-* Flexible date and time formatting.
-* Locale-aware month name rendering.
-* Popular built-in locales (`ru`, `en`, `es`, `fr`, `de`, `it`, `pt`, `ja`, `ko`, `zh`) with `Intl` fallback for others.
-* Custom formatting with tokens (`yyyy`, `MM`, `dd`, `HH`, etc.).
-* Optional `utc`, `timeZone`, and `locale` per call via settings object.
-* Strict ISO-like string parsing (`YYYY-MM-DD` and ISO date-time).
-* Helpers: `isDate`, `now`, `fromTimestamp`.
+- `YYYY-MM-DD`
+- ISO-like date-time: `YYYY-MM-DDTHH:mm[:ss[.fraction]][Z|+HH:mm|-HH:mm]`
 
-### Example Usage
+Impossible calendar dates, invalid times, malformed offsets, and arbitrary date-like strings are rejected. A date-only string is treated as a calendar date and is not shifted by UTC or timezone formatting.
 
 ```ts
-DateUtil.setLocale(() => 'en'); // resolver-based locale
-
+DateUtil.isDate('2025-02-29'); // false
 DateUtil.toDate('2025-05-23'); // "23.05.2025"
-DateUtil.toDateTime(new Date(), { utc: true }); // UTC formatting
-DateUtil.toDayMonth('2025-08-15', { locale: 'fr' }); // "15 août" / localized month
 DateUtil.toTime('2025-08-15T12:00:00Z', { timeZone: 'Asia/Tokyo' }); // "21:00"
-DateUtil.toFormat('2025-12-01', 'dd MM yyyy', { locale: 'en' }); // "01 December 2025"
-DateUtil.isDate('2025-12-01'); // true
-DateUtil.now(); // Date
-DateUtil.fromTimestamp(0); // Date(1970-01-01T00:00:00.000Z)
+DateUtil.toFormat('2025-12-01', 'dd MM yyyy', { locale: 'en' });
+
+DateUtil.compare('2025-01-01', '2025-01-02'); // -1
+DateUtil.isBefore('2025-01-01', '2025-01-02'); // true
+DateUtil.isAfter('2025-01-02', '2025-01-01'); // true
+DateUtil.isSame('2025-01-01', '2025-01-01'); // true
+DateUtil.isBetween('2025-01-02', '2025-01-01', '2025-01-03'); // true
+DateUtil.isPast(date);
+DateUtil.isFuture(date);
 ```
 
-### Supported Format Tokens
-
-| Token  | Description                    |
-| ------ | ------------------------------ |
-| `yyyy` | Full year (e.g., `2025`)       |
-| `yy`   | Short year (e.g., `25`)        |
-| `MM`   | Month name from locale         |
-| `mm`   | Month number with leading zero |
-| `dd`   | Day with leading zero          |
-| `d`    | Day without leading zero       |
-| `HH`   | Hours with leading zero        |
-| `ii`   | Minutes with leading zero      |
-| `ss`   | Seconds with leading zero      |
-
----
-
-### `Cookies`
-
-The `Cookies` class provides a simple interface for interacting with cookies in the browser.
-
-### Features
-
-* Set, get, delete, and clear cookies.
-* Supports JSON-serializable values.
-* Custom options (expiration, path, domain, secure, SameSite).
-* Auto-check for browser environment.
-
-### Example Usage
+The default locale is always `en`. Pass `locale` directly or install a resolver when locale is application state:
 
 ```ts
-Cookies.set('theme', 'dark', { expires: 7 }); // expires in 7 days
-const theme = Cookies.get('theme'); // "dark"
-
-Cookies.set('user', { name: 'Alice' });
-const user = Cookies.get<{ name: string }>('user'); // { name: 'Alice' }
-
-Cookies.delete('theme');
+DateUtil.setLocale(() => currentLocale);
+DateUtil.clearLocaleResolver();
 ```
 
----
+Frequently reused `Intl.DateTimeFormat` instances and generated month lists are cached.
 
-### `DebounceUtil`
+Formatting tokens: `yyyy`, `yy`, `MM` (month name), `mm`, `dd`, `d`, `HH`, `ii`, `ss`.
 
-Creates a debounced function that runs only after `ms` milliseconds have passed since the last call.
+## TextUtil
 
 ```ts
-const onSearch = DebounceUtil.debounce((query: string) => fetchSuggestions(query), 300);
-onSearch('a'); onSearch('ab'); onSearch('abc'); // only last call runs after 300ms
+TextUtil.pluralize(2, ['item', 'items']);
+TextUtil.truncate('long text', 4); // "long..."
+TextUtil.capitalize('hello');
+TextUtil.decapitalize('Hello');
+TextUtil.isEmptyOrWhitespace('   ');
 ```
 
----
+For `truncate`, `maxLength` is the number of source characters kept before `ellipsis`. The final output can therefore have length `maxLength + ellipsis.length`.
 
-### `ThrottleUtil`
+## FormDataUtil
 
-Creates a throttled function that runs at most once per `ms` milliseconds (leading + one trailing call).
+Converts nested objects to `FormData` and bracket-notation fields back to objects.
 
 ```ts
-const onScroll = ThrottleUtil.throttle(() => updatePosition(), 100);
+const form = new FormData();
+form.append('user[name]', 'Ada');
+form.append('tags[]', 'typescript');
+
+const value = FormDataUtil.toObject(form);
+const serialized = FormDataUtil.fromObject(value);
 ```
 
----
+`toObject` supports object paths, array indexes, and append syntax. Dangerous prototype path segments are rejected, and path depth and array indexes are bounded. `fromObject` supports arrays, `Map`, `Set`, `Date`, `Blob`, and `File`, and rejects cyclic input.
 
-### `LocalStorageUtil`
+## LocalStorageUtil
 
-Utility for `localStorage` in the browser. Uses `EnvironmentUtil` and does not access storage on the server. API mirrors `Cookies`: set, get, delete, has, keys, getAll, clear. Non-string values are JSON-serialized.
+All methods are SSR-safe: `set`, `get`, `delete`, `has`, `keys`, `getAll`, and `clear`. Browser support is probed once and cached.
 
 ```ts
-LocalStorageUtil.set('theme', 'dark');
-const theme = LocalStorageUtil.get<string>('theme'); // "dark"
-
-LocalStorageUtil.set('user', { name: 'Alice' });
-const user = LocalStorageUtil.get<{ name: string }>('user'); // { name: 'Alice' }
-
-LocalStorageUtil.delete('theme');
-const allKeys = LocalStorageUtil.keys();
-LocalStorageUtil.clear();
+LocalStorageUtil.set('settings', { theme: 'dark' });
+LocalStorageUtil.get<{ theme: string }>('settings');
+LocalStorageUtil.get<string>('raw-json', { parse: false });
 ```
 
----
-
-## Usage Example
+Use `createInstance` to bind a key once. Default read options are also bound and can be overridden for an individual read:
 
 ```ts
-import { EnvironmentUtil, TextUtil, ObjectUtil, DebounceUtil, LocalStorageUtil } from '@azure-net/tools';
+const SessionStorage = LocalStorageUtil.createInstance<{ token: string }>('session');
+SessionStorage.set({ token: 'token' });
+SessionStorage.get();
+SessionStorage.has();
+SessionStorage.delete();
 
-if (EnvironmentUtil.isBrowser) {
-	console.log(TextUtil.capitalize('hello world'));
-	LocalStorageUtil.set('pref', { theme: 'dark' });
+const RawToken = LocalStorageUtil.createInstance<string>('token', { parse: false });
+RawToken.get();
+```
+
+JSON serialization and storage quota/security failures are caught and do not leak exceptions from this helper.
+
+## Cookies
+
+Browser-only cookie access with SSR-safe fallbacks.
+
+```ts
+Cookies.set('user', { id: 1 }, { expires: 7, sameSite: 'Lax' });
+Cookies.get<{ id: number }>('user');
+Cookies.get<string>('raw-json', { parse: false });
+Cookies.getAll({ parse: false });
+Cookies.has('user');
+Cookies.delete('user');
+Cookies.clear();
+```
+
+Values are URI encoded. Reads parse JSON by default and return the decoded string when JSON parsing is not applicable.
+
+## DebounceUtil
+
+```ts
+const search = DebounceUtil.debounce(runSearch, 300);
+search('a');
+search('ab');
+search.flush();
+search.cancel();
+
+const save = DebounceUtil.debounceAsync(saveDraft, 300);
+await save(draft);
+save.cancel();
+```
+
+`debounceAsync` returns one promise per caller. All queued callers receive the last invocation's result or rejection. Timer-driven rejection is consumed internally after those promises are rejected, preventing a second unhandled rejection from the internal invocation.
+
+## ThrottleUtil
+
+Creates a leading and trailing throttled function:
+
+```ts
+const update = ThrottleUtil.throttle(updatePosition, 100);
+update();
+update.pending();
+update.flush();
+update.cancel();
+```
+
+Pending arguments are released after invocation or cancellation.
+
+## EventBus
+
+Interfaces and type aliases can be used as event maps:
+
+```ts
+interface AppEvents {
+	ready: { id: string };
+	failed: Error;
 }
 
-const user = { id: 1, name: 'Alice', password: 'secret' };
-const safe = ObjectUtil.pick(user, ['id', 'name']); // { id: 1, name: 'Alice' }
-const withoutPassword = ObjectUtil.omit(user, ['password']); // { id: 1, name: 'Alice' }
-
-const fn = DebounceUtil.debounce((x: number) => console.log(x), 200);
-fn(1); fn(2); fn(3); // logs 3 once after 200ms
+const bus = new EventBus<AppEvents>({}, { mode: 'serial' });
+const unsubscribe = bus.subscribe('ready', ({ id }) => console.log(id));
+await bus.publish('ready', () => ({ id: '1' }));
+unsubscribe();
 ```
 
----
+The default `serial` mode awaits listeners in registration order. `mode: 'parallel'` executes channel and catch-all listener snapshots concurrently. Listener exceptions are passed to `onError` when configured and otherwise logged.
 
-## 📄 License
+## AbortUtil
+
+```ts
+const { signal, cleanup } = AbortUtil.withTimeout(parentSignal, 5_000);
+try {
+	await fetch(url, { signal });
+} finally {
+	cleanup();
+}
+
+AbortUtil.isAbortError(error);
+```
+
+Source cancellation and its reason are propagated. A timeout aborts with an error named `TimeoutError`. Call `cleanup` when the operation settles to release the timer and source listener.
+
+## PromiseUtil
+
+```ts
+if (PromiseUtil.isPromiseLike(value)) {
+	await value;
+}
+```
+
+The check intentionally uses the thenable contract instead of `instanceof Promise`, so it works across realms and with custom promise implementations.
+
+## ErrorUtil
+
+```ts
+const error = ErrorUtil.toError(caughtValue, 'Unknown operation error');
+```
+
+Existing `Error` instances are returned unchanged. Strings, primitives, and error-like objects become an `Error`; the original value is retained as its non-enumerable `cause`.
+
+## UidGenerator
+
+```ts
+UidGenerator.generateUniqueString(24);
+UidGenerator.generateUniqueNumber(1, 100);
+UidGenerator.generateUuid();
+UidGenerator.generateNanoId();
+UidGenerator.generateTimestampId('order');
+UidGenerator.generateHashId();
+UidGenerator.isValidUuid(value);
+```
+
+Random strings and numbers use rejection sampling to avoid modulo bias. Numeric bounds must be safe integers and generated values are within the inclusive range.
+
+## IntersectionObserverUtil
+
+Observers with identical options share one native `IntersectionObserver` instance.
+
+```ts
+const observer = new IntersectionObserverUtil(element, {
+	callback(entry) {
+		console.log(entry.isIntersecting);
+	},
+	once: true,
+	onceMode: 'intersect',
+	triggerOnExit: false
+});
+
+observer.disconnect();
+```
+
+The utility safely becomes inert when `IntersectionObserver` is unavailable.
+
+## DownloadUtil
+
+```ts
+DownloadUtil.download(blob, 'report.pdf');
+DownloadUtil.download('https://example.com/report.pdf', 'report.pdf');
+```
+
+Generated object URLs are revoked on the next task, after the synthetic click has consumed them. Calls are no-ops during SSR.
+
+## License
 
 MIT

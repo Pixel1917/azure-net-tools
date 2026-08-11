@@ -1,11 +1,12 @@
-export type DebouncedFunction<T extends (...args: unknown[]) => unknown> = ((...args: Parameters<T>) => void) & {
+type AnyFunction = (...args: never[]) => unknown;
+type AnyAsyncFunction = (...args: never[]) => Promise<unknown>;
+
+export type DebouncedFunction<T extends AnyFunction> = ((...args: Parameters<T>) => void) & {
 	cancel: () => void;
 	flush: () => ReturnType<T> | undefined;
 };
 
-export type DebouncedAsyncFunction<T extends (...args: unknown[]) => Promise<unknown>> = ((
-	...args: Parameters<T>
-) => Promise<Awaited<ReturnType<T>>>) & {
+export type DebouncedAsyncFunction<T extends AnyAsyncFunction> = ((...args: Parameters<T>) => Promise<Awaited<ReturnType<T>>>) & {
 	cancel: (reason?: unknown) => void;
 	flush: () => Promise<Awaited<ReturnType<T>> | undefined>;
 };
@@ -24,7 +25,7 @@ export type DebouncedAsyncFunction<T extends (...args: unknown[]) => Promise<unk
  * fn(1); fn(2); fn(3); // logs 3 once after 200ms
  */
 export class DebounceUtil {
-	static debounce<T extends (...args: unknown[]) => unknown>(fn: T, ms: number): DebouncedFunction<T> {
+	static debounce<T extends AnyFunction>(fn: T, ms: number): DebouncedFunction<T> {
 		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 		let lastArgs: Parameters<T> | undefined;
 
@@ -65,7 +66,7 @@ export class DebounceUtil {
 		return debounced as DebouncedFunction<T>;
 	}
 
-	static debounceAsync<T extends (...args: unknown[]) => Promise<unknown>>(fn: T, ms: number): DebouncedAsyncFunction<T> {
+	static debounceAsync<T extends AnyAsyncFunction>(fn: T, ms: number): DebouncedAsyncFunction<T> {
 		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 		let lastArgs: Parameters<T> | undefined;
 		let pendingResolves: Array<(value: Awaited<ReturnType<T>>) => void> = [];
@@ -103,7 +104,8 @@ export class DebounceUtil {
 
 				timeoutId = setTimeout(() => {
 					timeoutId = undefined;
-					void invoke();
+					// Callers receive the rejection through their queued promises.
+					void invoke().catch(() => undefined);
 				}, ms);
 			});
 		};

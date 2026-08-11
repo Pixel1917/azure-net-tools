@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Cookies } from '../src/cookies/Cookies.js';
 
 describe('Cookies', () => {
@@ -12,9 +12,24 @@ describe('Cookies', () => {
 		Cookies.set('theme', 'dark');
 		expect(Cookies.get('theme')).toBe('dark');
 	});
+	it('can disable automatic JSON parsing', () => {
+		Cookies.set('numeric', '123');
+		expect(Cookies.get('numeric')).toBe(123);
+		expect(Cookies.get('numeric', { parse: false })).toBe('123');
+		expect(Cookies.getAll({ parse: false })['numeric']).toBe('123');
+	});
 	it('set and get object', () => {
 		Cookies.set('user', { name: 'Alice' });
 		expect(Cookies.get<{ name: string }>('user')).toEqual({ name: 'Alice' });
+	});
+	it('does not throw for cyclic values', () => {
+		const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const value: Record<string, unknown> = {};
+		value.self = value;
+
+		expect(() => Cookies.set('cyclic', value)).not.toThrow();
+		expect(Cookies.has('cyclic')).toBe(false);
+		warning.mockRestore();
 	});
 	it('has returns true when key exists', () => {
 		Cookies.set('k', 'v');
