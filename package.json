@@ -17,7 +17,7 @@
 		"registry": "https://registry.npmjs.org/"
 	},
 	"license": "MIT",
-	"version": "2.0.0",
+	"version": "2.1.0",
 	"main": "dist/index.js",
 	"types": "dist/types/index.d.ts",
 	"sideEffects": false,
@@ -66,31 +66,21 @@
 		"check": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
 		"test": "vitest run && vitest run --config vitest.node.config.ts",
 		"test:watch": "vitest",
-		"prepare": "husky",
-		"commit": "pnpm format && git add . && git-cz && git push",
+		"commit": "pnpm format && git add .",
 		"pub": "pnpm build && pnpm publish"
 	},
 	"keywords": [],
 	"packageManager": "pnpm@9.13.2+sha512.88c9c3864450350e65a33587ab801acf946d7c814ed1134da4a924f6df5a2120fd36b46aab68f7cd1d413149112d53c7db3a4136624cfd00ff1846a0c6cef48a",
 	"devDependencies": {
 		"@eslint/js": "^9.25.1",
-		"@commitlint/cli": "^19.7.1",
 		"@types/node": "^22.15.21",
-		"commitizen": "^4.3.1",
 		"eslint": "^9.36.0",
 		"eslint-config-prettier": "^10.1.1",
-		"git-cz": "^4.9.0",
 		"globals": "^16.0.0",
 		"happy-dom": "^20.8.9",
-		"husky": "^9.1.7",
 		"prettier": "^3.5.3",
 		"typescript": "^5.8.3",
 		"typescript-eslint": "^8.42.0",
 		"vitest": "^3.2.4"
-	},
-	"config": {
-		"commitizen": {
-			"path": "git-cz"
-		}
 	}
 }

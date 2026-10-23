@@ -15,3 +15,4 @@ export * from './promiseUtil/PromiseUtil.js';
 export * from './abortUtil/AbortUtil.js';
 export * from './errorUtil/ErrorUtil.js';
 export * from './debugUtil/DebugUtil.js';
+export * from './enumUtil/EnumUtil.js';
